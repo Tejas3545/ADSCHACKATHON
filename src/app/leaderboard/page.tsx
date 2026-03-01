@@ -49,8 +49,7 @@ function AnimatedXP({ value, flash }: { value: number; flash: boolean }) {
   }, [value]);
 
   return (
-    <span className={`font-mono font-bold tabular-nums transition-all ${flash ? "scale-125 text-yellow-300" : "text-foreground"}`}
-      style={{ display: "inline-block", transition: "transform 0.3s, color 0.3s" }}>
+    <span className={`font-mono font-bold tabular-nums transition-all inline-block duration-300 ${flash ? "scale-125 text-yellow-300" : "text-foreground"}`}>
       {displayed.toLocaleString()}
     </span>
   );
@@ -65,6 +64,7 @@ function MilestoneTrack({ milestones, completed, flash }: {
   if (total === 0) return null;
   const doneCount = milestones.filter(m => completed.includes(m.code)).length;
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
+  const trackId = `track-${completed.join('-')}`;
 
   return (
     <div className="w-full space-y-2">
@@ -79,11 +79,7 @@ function MilestoneTrack({ milestones, completed, flash }: {
               {i > 0 && (
                 <div className="flex-1 h-1 relative overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-                    style={{
-                      width: done ? "100%" : "0%",
-                      background: "linear-gradient(90deg, #7c5cfc, #a78bfa)",
-                    }}
+                    className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 bg-gradient-to-r from-violet-600 to-violet-400 ${done ? 'w-full' : 'w-0'}`}
                   />
                 </div>
               )}
@@ -118,8 +114,7 @@ function MilestoneTrack({ milestones, completed, flash }: {
               {/* Connector after last dot — fill remaining */}
               {isLast && (
                 <div className="flex-1 h-1 relative overflow-hidden rounded-full bg-white/10">
-                  <div className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: done ? "100%" : "0%", background: "linear-gradient(90deg, #7c5cfc, #a78bfa)", transition: "width 0.7s" }} />
+                  <div className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 bg-gradient-to-r from-violet-600 to-violet-400 ${done ? 'w-full' : 'w-0'}`} />
                 </div>
               )}
             </div>
@@ -134,14 +129,18 @@ function MilestoneTrack({ milestones, completed, flash }: {
       {/* Bar */}
       <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{
-            width: `${pct}%`,
-            background: "linear-gradient(90deg, #7c5cfc 0%, #a78bfa 50%, #c4b5fd 100%)",
-            boxShadow: pct > 0 ? "0 0 8px rgba(139,92,246,0.6)" : "none",
-          }}
+          className={`milestone-progress-bar-${trackId} h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-violet-600 via-violet-400 to-violet-200`}
+          data-has-glow={pct > 0}
         />
       </div>
+      <style>{`
+        .milestone-progress-bar-${trackId} {
+          width: ${pct}%;
+        }
+        .milestone-progress-bar-${trackId}[data-has-glow="true"] {
+          filter: drop-shadow(0 0 8px rgba(139,92,246,0.6));
+        }
+      `}</style>
     </div>
   );
 }
@@ -255,14 +254,12 @@ export default function LeaderboardPage() {
             return (
               <div
                 key={row.teamId}
-                className={`relative rounded-2xl border transition-all duration-500
+                className={`leaderboard-card relative rounded-2xl border transition-all duration-500 animate-[slideUp_0.4s_ease-out_both]
                   ${isFlash ? "border-violet-400/70 shadow-[0_0_24px_rgba(139,92,246,0.3)]" : "border-border"}
                   ${isNew ? "border-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.3)]" : ""}
                   bg-card
                 `}
-                style={{
-                  animation: `slideUp 0.4s ease-out ${i * 0.07}s both`,
-                }}
+                data-index={i}
               >
                 {/* Rank accent stripe */}
                 <div
@@ -326,6 +323,17 @@ export default function LeaderboardPage() {
           from { opacity: 0; transform: translateY(20px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        
+        .leaderboard-card[data-index="0"] { animation-delay: 0s; }
+        .leaderboard-card[data-index="1"] { animation-delay: 0.07s; }
+        .leaderboard-card[data-index="2"] { animation-delay: 0.14s; }
+        .leaderboard-card[data-index="3"] { animation-delay: 0.21s; }
+        .leaderboard-card[data-index="4"] { animation-delay: 0.28s; }
+        .leaderboard-card[data-index="5"] { animation-delay: 0.35s; }
+        .leaderboard-card[data-index="6"] { animation-delay: 0.42s; }
+        .leaderboard-card[data-index="7"] { animation-delay: 0.49s; }
+        .leaderboard-card[data-index="8"] { animation-delay: 0.56s; }
+        .leaderboard-card[data-index="9"] { animation-delay: 0.63s; }
       `}</style>
     </div>
   );
