@@ -1,10 +1,13 @@
 import { getCollections } from "@/lib/collections";
 import { levelFromXp } from "@/lib/models";
 import { serverCache, CacheKeys, CacheTTL } from "@/lib/cache";
+import { ensureDefaultMilestones } from "@/lib/milestone-seed";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await ensureDefaultMilestones();
+
   // Check cache first
   const cached = serverCache.get(CacheKeys.LEADERBOARD);
   if (cached) {

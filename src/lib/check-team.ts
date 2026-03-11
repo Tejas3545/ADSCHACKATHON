@@ -9,6 +9,8 @@ import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
 import { quickValidateCommit } from "@/lib/commit-validator";
 import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
+import { serverCache, CacheKeys } from "@/lib/cache";
+import { ensureDefaultMilestones } from "@/lib/milestone-seed";
 import { nanoid } from "nanoid";
 import type { Team } from "@/lib/models";
 
@@ -70,6 +72,7 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
   }
 
   // ── Step 4: Load active milestones not yet verified for this team ────────
+  await ensureDefaultMilestones();
   const { teams, milestones, submissions } = await getCollections();
 
   const activeMilestones = await milestones.find({ active: true }).toArray();
@@ -182,6 +185,8 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
   // ── Step 7: Broadcast real-time update if anything was awarded ───────────
   const anyVerified = Object.values(results).some((r) => r === "verified");
   if (anyVerified) {
+    serverCache.invalidate(CacheKeys.TEAM(team._id));
+    serverCache.invalidate(CacheKeys.LEADERBOARD);
     broadcast("leaderboard-update", { teamId: team._id, teamName: team.name });
   }
 

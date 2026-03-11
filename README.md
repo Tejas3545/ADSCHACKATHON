@@ -22,6 +22,13 @@ A real-time live leaderboard for hackathon events. Teams register their GitHub r
 4. The live leaderboard at `/leaderboard` updates in real-time via Server-Sent Events
 5. Judges visit `/admin` to see the full dashboard and manually review milestones
 
+### Team Access Recovery
+
+- Team dashboard access is available at `/team`
+- The app remembers the last opened Team ID in the same browser
+- If Team ID is forgotten, teams can recover access using team name (+ repo URL) from the **Forgot Team ID** section
+- Team dashboard also includes **Sync from GitHub** to force an immediate progress check
+
 ---
 
 ## Project Structure
@@ -106,6 +113,8 @@ If you need to clear all data and start fresh (e.g., for a new event or after te
 2. Click the **"🗑️ Reset Database"** button
 3. Confirm the action twice (this prevents accidental deletions)
 4. Done! Teams can now register fresh
+
+> Reset now recreates default milestones automatically, so XP tracking keeps working after reset.
 
 ### Method 2: Using the Command Line
 ```bash

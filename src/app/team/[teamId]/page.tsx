@@ -13,10 +13,16 @@ export default function TeamDashboardPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [autoRefreshed, setAutoRefreshed] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const esRef = useRef<EventSource | null>(null);
   const prevXpRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && teamId) {
+      localStorage.setItem("lastTeamId", teamId);
+    }
+
     fetchData();
 
     // Connect to SSE — auto-refresh this team's dashboard when they (or anyone) push
@@ -101,6 +107,30 @@ export default function TeamDashboardPage() {
     }
   }
 
+  async function syncNow() {
+    setSyncing(true);
+    setSyncMessage("");
+
+    try {
+      const res = await fetch(`/api/team/${teamId}/sync`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Sync failed");
+
+      const statusText = json.result?.skipped
+        ? json.result.reason || "No new commits found"
+        : "Sync complete. Dashboard refreshed.";
+
+      setSyncMessage(statusText);
+      await fetchData();
+    } catch (err) {
+      setSyncMessage(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (loading) return <div className="text-center text-muted">Loading dashboard...</div>;
   if (error) return <div className="text-center text-red-500">{error}</div>;
   if (!data) return null;
@@ -136,6 +166,23 @@ export default function TeamDashboardPage() {
           Live updates active
         </div>
       </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-card px-4 py-3">
+        <p className="text-sm text-muted">Latest commit not reflected yet? Run a manual sync.</p>
+        <button
+          onClick={syncNow}
+          disabled={syncing}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+        >
+          {syncing ? "Syncing..." : "Sync from GitHub"}
+        </button>
+      </div>
+
+      {syncMessage && (
+        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted">
+          {syncMessage}
+        </div>
+      )}
 
       {autoRefreshed && (
         <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm font-medium text-accent animate-pulse">

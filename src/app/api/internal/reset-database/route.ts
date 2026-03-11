@@ -1,5 +1,6 @@
 import { getCollections } from "@/lib/collections";
 import { assertAdmin } from "@/lib/admin";
+import { DEFAULT_MILESTONES } from "@/lib/default-milestones";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
       milestones.deleteMany({}),
     ]);
 
+    const seedResult = await milestones.insertMany(DEFAULT_MILESTONES);
+
     console.log("🗑️  Database reset complete");
     console.log(`   - Teams deleted: ${teamsResult.deletedCount}`);
     console.log(`   - Submissions deleted: ${submissionsResult.deletedCount}`);
@@ -30,7 +33,8 @@ export async function POST(req: Request) {
         submissions: submissionsResult.deletedCount,
         milestones: milestonesResult.deletedCount,
       },
-      message: "Database reset successfully. You can now start fresh!",
+      seededMilestones: seedResult.insertedCount,
+      message: "Database reset successfully. Default milestones were recreated.",
     });
   } catch (error) {
     console.error("Error resetting database:", error);

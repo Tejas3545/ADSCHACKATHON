@@ -48,6 +48,10 @@ export default function RegisterPage() {
         colors: ['#7c5cff', '#22d3ee', '#ffffff']
       });
 
+      if (typeof window !== "undefined") {
+        localStorage.setItem("lastTeamId", data.teamId);
+      }
+
       setTimeout(() => {
         router.push(`/team/${data.teamId}`);
       }, 1500);

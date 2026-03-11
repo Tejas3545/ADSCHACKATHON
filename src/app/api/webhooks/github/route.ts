@@ -1,5 +1,6 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
+import { serverCache, CacheKeys } from "@/lib/cache";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 
@@ -173,6 +174,8 @@ export async function POST(req: Request) {
   }
 
   // Broadcast real-time update to all connected browser clients
+  serverCache.invalidate(CacheKeys.TEAM(team._id));
+  serverCache.invalidate(CacheKeys.LEADERBOARD);
   broadcast("leaderboard-update", { teamId: team._id, teamName: team.name });
 
   return Response.json({ ok: true, teamId: team._id, results });

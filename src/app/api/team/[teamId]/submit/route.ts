@@ -2,6 +2,7 @@ import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
 import { calculateXPWithTimeBonus, getTimeBonusDescription } from "@/lib/xp-calculator";
 import { serverCache, CacheKeys } from "@/lib/cache";
+import { ensureDefaultMilestones } from "@/lib/milestone-seed";
 import { nanoid } from "nanoid";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ teamId: string }> }
 ) {
   const { teamId } = await params;
+  await ensureDefaultMilestones();
   const json = await req.json().catch(() => null);
   const milestoneCode = json?.milestoneCode;
 
