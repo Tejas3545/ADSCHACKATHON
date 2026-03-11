@@ -18,6 +18,17 @@ type CheckResult =
   | { skipped: true; reason: string }
   | { skipped: false; headSha: string; results: Record<string, "verified" | "skipped" | "failed"> };
 
+async function fetchGitHubWithTokenFallback(url: string, headers: Record<string, string>): Promise<Response> {
+  const response = await fetch(url, { headers });
+  if (response.status !== 401 || !headers.Authorization) {
+    return response;
+  }
+
+  const retryHeaders = { ...headers };
+  delete retryHeaders.Authorization;
+  return fetch(url, { headers: retryHeaders });
+}
+
 export async function checkTeam(team: Team): Promise<CheckResult> {
   const { owner, repo, branch } = team.repo;
 
@@ -30,9 +41,9 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
   if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
 
   // ── Step 1: Get the latest commit SHA on the team's branch ──────────────
-  const branchRes = await fetch(
+  const branchRes = await fetchGitHubWithTokenFallback(
     `https://api.github.com/repos/${owner}/${repo}/commits/${branch}`,
-    { headers }
+    headers
   );
 
   if (!branchRes.ok) {
@@ -48,9 +59,9 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
   }
 
   // ── Step 3: Fetch detailed commit info (files changed) ──────────────────
-  const commitRes = await fetch(
+  const commitRes = await fetchGitHubWithTokenFallback(
     `https://api.github.com/repos/${owner}/${repo}/commits/${headSha}`,
-    { headers }
+    headers
   );
   const commitData = commitRes.ok
     ? (await commitRes.json() as { files?: { additions: number; filename: string }[] })
@@ -112,9 +123,9 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
 
       // Check required files exist and contain correct content
       for (const fileRule of milestone.rules?.files ?? []) {
-        const fileRes = await fetch(
+        const fileRes = await fetchGitHubWithTokenFallback(
           `https://api.github.com/repos/${owner}/${repo}/contents/${fileRule.path}?ref=${headSha}`,
-          { headers }
+          headers
         );
         if (!fileRes.ok) throw new Error(`Missing file: ${fileRule.path}`);
         const fileData = await fileRes.json() as { type: string; content?: string };

@@ -6,6 +6,17 @@ import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
+async function fetchGitHubWithTokenFallback(url: string, headers: Record<string, string>): Promise<Response> {
+  const response = await fetch(url, { headers });
+  if (response.status !== 401 || !headers.Authorization) {
+    return response;
+  }
+
+  const retryHeaders = { ...headers };
+  delete retryHeaders.Authorization;
+  return fetch(url, { headers: retryHeaders });
+}
+
 // Verify HMAC signature from GitHub to ensure the request is authentic
 function verifySignature(body: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
@@ -77,9 +88,9 @@ export async function POST(req: Request) {
   if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
 
   // Get the commit details to check files changed
-  const commitRes = await fetch(
+  const commitRes = await fetchGitHubWithTokenFallback(
     `https://api.github.com/repos/${pushedOwner}/${pushedRepo}/commits/${headSha}`,
-    { headers }
+    headers
   );
   const commitData = commitRes.ok ? await commitRes.json() : { files: [] };
   const filesChanged: { additions: number; filename: string }[] = (commitData.files as { additions: number; filename: string }[]) || [];
@@ -121,9 +132,9 @@ export async function POST(req: Request) {
 
       // Check required files
       for (const fileRule of milestone.rules?.files ?? []) {
-        const fileRes = await fetch(
+        const fileRes = await fetchGitHubWithTokenFallback(
           `https://api.github.com/repos/${pushedOwner}/${pushedRepo}/contents/${fileRule.path}?ref=${headSha}`,
-          { headers }
+          headers
         );
         if (!fileRes.ok) throw new Error(`Missing file: ${fileRule.path}`);
         const fileData = await fileRes.json();

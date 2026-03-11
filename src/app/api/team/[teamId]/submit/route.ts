@@ -7,6 +7,17 @@ import { nanoid } from "nanoid";
 
 export const dynamic = "force-dynamic";
 
+async function fetchGitHubWithTokenFallback(url: string, headers: Record<string, string>): Promise<Response> {
+  const response = await fetch(url, { headers });
+  if (response.status !== 401 || !headers.Authorization) {
+    return response;
+  }
+
+  const retryHeaders = { ...headers };
+  delete retryHeaders.Authorization;
+  return fetch(url, { headers: retryHeaders });
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ teamId: string }> }
@@ -45,19 +56,19 @@ export async function POST(
 
   try {
     // 1. Verify Repo Exists and is Accessible
-    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+    const repoRes = await fetchGitHubWithTokenFallback(`https://api.github.com/repos/${owner}/${repo}`, headers);
     if (!repoRes.ok) {
       throw new Error(`Repository not found or is private. Please ensure the repository is public.`);
     }
 
     // 2. Get latest commit on branch
-    const branchRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches/${branch}`, { headers });
+    const branchRes = await fetchGitHubWithTokenFallback(`https://api.github.com/repos/${owner}/${repo}/branches/${branch}`, headers);
     if (!branchRes.ok) throw new Error(`Failed to fetch branch '${branch}': ${branchRes.statusText}`);
     const branchData = await branchRes.json();
     const headSha = branchData.commit.sha;
 
     // 3. Get commit details to check diff
-    const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${headSha}`, { headers });
+    const commitRes = await fetchGitHubWithTokenFallback(`https://api.github.com/repos/${owner}/${repo}/commits/${headSha}`, headers);
     if (!commitRes.ok) throw new Error(`Failed to fetch commit: ${commitRes.statusText}`);
     const commitData = await commitRes.json();
 
@@ -77,7 +88,7 @@ export async function POST(
 
     // 4. Check file rules
     for (const fileRule of milestone.rules.files) {
-      const fileRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${fileRule.path}?ref=${headSha}`, { headers });
+      const fileRes = await fetchGitHubWithTokenFallback(`https://api.github.com/repos/${owner}/${repo}/contents/${fileRule.path}?ref=${headSha}`, headers);
       if (!fileRes.ok) throw new Error(`Required file ${fileRule.path} not found in repository`);
       
       const fileData = await fileRes.json();
