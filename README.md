@@ -51,7 +51,7 @@ src/
 │       ├── internal/
 │       │   ├── poll/             # GET  — cron: auto-check all team repos
 │       │   ├── ensure-indexes/   # POST — create MongoDB indexes
-│       │   └── seed-milestones/  # POST — seed default milestones
+│       │   └── reset-database/   # POST — reset all data (admin only)
 │       └── webhooks/github/      # POST — GitHub push webhook (optional)
 └── lib/
     ├── db.ts                     # MongoDB client
@@ -93,11 +93,31 @@ Then initialize the database (run once):
 ```bash
 # Create MongoDB indexes
 curl -X POST http://localhost:3000/api/internal/ensure-indexes
-
-# Seed default milestones
-curl -X POST http://localhost:3000/api/internal/seed-milestones \
-  -H "x-admin-password: YOUR_ADMIN_PASSWORD"
 ```
+
+---
+
+## Resetting the Database
+
+If you need to clear all data and start fresh (e.g., for a new event or after testing):
+
+### Method 1: Using the Admin Panel (Easiest)
+1. Go to `/admin` and login with your admin password
+2. Click the **"🗑️ Reset Database"** button
+3. Confirm the action twice (this prevents accidental deletions)
+4. Done! Teams can now register fresh
+
+### Method 2: Using the Command Line
+```bash
+# Reset all collections (teams, submissions, milestones)
+npm run reset-db -- --force
+```
+
+**⚠️ WARNING:** Resetting deletes ALL data including:
+- All registered teams
+- All milestone submissions  
+- All milestone definitions
+- This action cannot be undone!
 
 ---
 

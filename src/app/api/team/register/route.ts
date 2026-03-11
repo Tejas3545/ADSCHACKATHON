@@ -55,11 +55,41 @@ export async function POST(req: Request) {
         );
       }
 
-      if (ghRes.status === 403 || ghRes.status === 401) {
-        return Response.json(
-          { ok: false, error: "GitHub repository is private. Please make the repository public before registering." },
-          { status: 400 }
-        );
+      if (ghRes.status === 403) {
+        // Check if it's rate limiting
+        const remainingHeader = ghRes.headers.get("x-ratelimit-remaining");
+        if (remainingHeader === "0") {
+          console.warn("GitHub API rate limit reached during registration");
+          // Allow registration to proceed - will be validated later
+        } else {
+          // Actually a private repo or access issue
+          const data = await ghRes.json().catch(() => ({}));
+          if ((data as any).message?.includes("API rate limit")) {
+            console.warn("GitHub API rate limit reached");
+            // Allow registration - skip validation
+          } else {
+            return Response.json(
+              { ok: false, error: "GitHub repository is private or inaccessible. Please make the repository public before registering." },
+              { status: 400 }
+            );
+          }
+        }
+      }
+
+      if (ghRes.status === 401) {
+        console.warn("GitHub API authentication issue during registration");
+        // Don't block registration - allow it to proceed
+      }
+
+      // Check if the repo data indicates it's private
+      if (ghRes.ok) {
+        const repoData = await ghRes.json().catch(() => ({}));
+        if ((repoData as any).private === true) {
+          return Response.json(
+            { ok: false, error: "GitHub repository is private. Please make the repository public before registering." },
+            { status: 400 }
+          );
+        }
       }
     } catch {
       // Network or TLS error reaching GitHub — allow registration to proceed.

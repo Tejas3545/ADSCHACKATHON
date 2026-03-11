@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "reset-db": "node scripts/reset-db.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

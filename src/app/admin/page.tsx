@@ -71,14 +71,30 @@ export default function AdminPage() {
     }
   }
 
-  async function seedMilestones() {
+  async function resetDatabase() {
+    const confirmed = confirm(
+      "⚠️ WARNING: This will delete ALL data (teams, submissions, and milestones). This action cannot be undone. Are you sure?"
+    );
+    
+    if (!confirmed) return;
+
+    const doubleConfirm = prompt(
+      'Type "RESET" to confirm database reset:'
+    );
+
+    if (doubleConfirm !== "RESET") {
+      alert("Reset cancelled.");
+      return;
+    }
+
     try {
-      const res = await fetch("/api/internal/seed-milestones", {
+      const res = await fetch("/api/internal/reset-database", {
         method: "POST",
         headers: { "x-admin-password": password },
       });
-      if (!res.ok) throw new Error("Failed to seed milestones");
-      alert("Milestones seeded successfully!");
+      if (!res.ok) throw new Error("Failed to reset database");
+      const result = await res.json();
+      alert(`Database reset complete!\n\nDeleted:\n- Teams: ${result.deleted.teams}\n- Submissions: ${result.deleted.submissions}\n- Milestones: ${result.deleted.milestones}\n\nYou can now start fresh!`);
       fetchDashboard(password);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -124,10 +140,10 @@ export default function AdminPage() {
           <p className="text-sm sm:text-base text-muted">Manage teams, milestones, and submissions.</p>
         </div>
         <button 
-          onClick={seedMilestones} 
-          className="w-full sm:w-auto rounded-lg bg-accent-2 px-4 py-2.5 sm:py-2 text-sm font-semibold text-black hover:bg-accent-2/90"
+          onClick={resetDatabase} 
+          className="w-full sm:w-auto rounded-lg bg-red-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white hover:bg-red-600"
         >
-          Seed Default Milestones
+          🗑️ Reset Database
         </button>
       </div>
 
