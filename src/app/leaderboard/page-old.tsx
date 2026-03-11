@@ -1,11 +1,6 @@
-/**
- * Optimized Leaderboard Component with Caching, Virtual Scrolling, and Performance Optimizations
- */
-
 "use client";
 
-import { useEffect, useRef, useState, useCallback, memo, useMemo } from "react";
-import useSWR from "swr";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type MilestoneCol = { _id: string; code: string; title: string; xp: number };
 type Row = {
@@ -27,15 +22,13 @@ const LEVEL_COLORS = [
 
 const RANK_MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
-// SWR fetcher with error handling
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { cache: "no-store" });
+async function fetchLeaderboard(): Promise<{ rows: Row[]; milestones: MilestoneCol[] }> {
+  const res = await fetch("/api/public/leaderboard", { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load");
   return res.json();
-};
+}
 
-// Memoized AnimatedXP component
-const AnimatedXP = memo(function AnimatedXP({ value, flash }: { value: number; flash: boolean }) {
+function AnimatedXP({ value, flash }: { value: number; flash: boolean }) {
   const [displayed, setDisplayed] = useState(value);
   const prev = useRef(value);
 
@@ -60,28 +53,18 @@ const AnimatedXP = memo(function AnimatedXP({ value, flash }: { value: number; f
       {displayed.toLocaleString()}
     </span>
   );
-});
+}
 
-// Memoized MilestoneTrack component
-const MilestoneTrack = memo(function MilestoneTrack({ 
-  milestones, 
-  completed, 
-  flash 
-}: {
+function MilestoneTrack({ milestones, completed, flash }: {
   milestones: MilestoneCol[];
   completed: string[];
   flash: boolean;
 }) {
   const total = milestones.length;
   if (total === 0) return null;
-  
-  const doneCount = useMemo(
-    () => milestones.filter(m => completed.includes(m.code)).length,
-    [milestones, completed]
-  );
-  
+  const doneCount = milestones.filter(m => completed.includes(m.code)).length;
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
-  const trackId = useMemo(() => `track-${completed.join('-')}`, [completed]);
+  const trackId = `track-${completed.join('-')}`;
 
   return (
     <div className="w-full space-y-2">
@@ -113,7 +96,7 @@ const MilestoneTrack = memo(function MilestoneTrack({
                 >
                   {done ? "✓" : m.code}
                 </div>
-                {/* Tooltip */}
+                {/* Tooltip — smart position: left-align first dot, right-align last, center others */}
                 <div className={`absolute bottom-full mb-2 z-50 hidden group-hover:flex
                   whitespace-nowrap rounded-lg bg-zinc-900 border border-white/15 px-3 py-2
                   text-[11px] text-white shadow-2xl flex-col items-center gap-0.5 pointer-events-none
@@ -128,7 +111,7 @@ const MilestoneTrack = memo(function MilestoneTrack({
                   <span className="text-violet-300">+{m.xp} XP</span>
                 </div>
               </div>
-              {/* Connector after last dot */}
+              {/* Connector after last dot — fill remaining */}
               {isLast && (
                 <div className="flex-1 h-1 relative overflow-hidden rounded-full bg-white/10">
                   <div className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 bg-gradient-to-r from-violet-600 to-violet-400 ${done ? 'w-full' : 'w-0'}`} />
@@ -160,132 +143,58 @@ const MilestoneTrack = memo(function MilestoneTrack({
       `}</style>
     </div>
   );
-});
-
-// Memoized TeamCard component for better virtual scrolling
-const TeamCard = memo(function TeamCard({
-  row,
-  index,
-  isFlash,
-  isNew,
-  milestones,
-}: {
-  row: Row;
-  index: number;
-  isFlash: boolean;
-  isNew: boolean;
-  milestones: MilestoneCol[];
-}) {
-  const medal = RANK_MEDALS[row.rank];
-  const lvlGradient = LEVEL_COLORS[row.level] ?? LEVEL_COLORS[1];
-  const doneCount = useMemo(
-    () => milestones.filter(m => row.milestones.includes(m.code)).length,
-    [milestones, row.milestones]
-  );
-
-  return (
-    <div
-      className={`leaderboard-card relative rounded-2xl border transition-all duration-500 animate-[slideUp_0.4s_ease-out_both]
-        ${isFlash ? "border-violet-400/70 shadow-[0_0_24px_rgba(139,92,246,0.3)]" : "border-border"}
-        ${isNew ? "border-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.3)]" : ""}
-        bg-card
-      `}
-      data-index={index}
-    >
-      {/* Rank accent stripe */}
-      <div
-        className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-gradient-to-b ${lvlGradient}`}
-      />
-
-      <div className="pl-5 pr-5 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
-        {/* Rank + team info */}
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          {/* Rank badge */}
-          <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-card-strong border border-border text-center">
-            {medal
-              ? <span className="text-2xl leading-none">{medal}</span>
-              : <span className="text-xl font-bold text-muted">#{row.rank}</span>
-            }
-          </div>
-
-          {/* Name + level + XP */}
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-lg text-foreground truncate">{row.teamName}</span>
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r ${lvlGradient} text-white`}>
-                Lvl {row.level}
-              </span>
-              {doneCount === milestones.length && milestones.length > 0 && (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400/30">
-                  🏆 Complete
-                </span>
-              )}
-            </div>
-            <div className="text-sm text-muted mt-0.5">
-              <AnimatedXP value={row.xp} flash={isFlash} />
-              <span className="text-muted font-normal ml-1">XP</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Milestone track */}
-        <div className="sm:w-1/2 flex-shrink-0">
-          <MilestoneTrack
-            milestones={milestones}
-            completed={row.milestones}
-            flash={isFlash}
-          />
-        </div>
-      </div>
-    </div>
-  );
-});
+}
 
 export default function LeaderboardPage() {
-  // Use SWR for data fetching with caching and revalidation
-  const { data, error, mutate } = useSWR<{ rows: Row[]; milestones: MilestoneCol[]; generatedAt: string }>(
-    "/api/public/leaderboard",
-    fetcher,
-    {
-      refreshInterval: 30000, // Auto-refresh every 30 seconds
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      dedupingInterval: 5000, // Prevent duplicate requests within 5 seconds
-    }
-  );
-
+  const [rows, setRows] = useState<Row[]>([]);
+  const [milestones, setMilestones] = useState<MilestoneCol[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [flashTeam, setFlashTeam] = useState<string | null>(null);
   const [newTeamId, setNewTeamId] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Memoize rows and milestones
-  const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
-  const milestones = useMemo(() => data?.milestones ?? [], [data?.milestones]);
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchLeaderboard();
+      setRows(data.rows);
+      setMilestones(data.milestones);
+      setLastUpdated(new Date());
+    } catch {
+      // keep stale data on error
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // SSE for instant updates
+    load();
+
+    // SSE for instant updates when any team earns XP or a new team registers
     const es = new EventSource("/api/public/events");
     esRef.current = es;
 
     es.addEventListener("leaderboard-update", (e: MessageEvent) => {
-      const payload = JSON.parse(e.data) as { teamName?: string; teamId?: string; newTeam?: boolean };
-      if (payload.newTeam && payload.teamId) {
-        setNewTeamId(payload.teamId);
+      const data = JSON.parse(e.data) as { teamName?: string; teamId?: string; newTeam?: boolean };
+      if (data.newTeam && data.teamId) {
+        setNewTeamId(data.teamId);
         setTimeout(() => setNewTeamId(null), 3000);
-      } else if (payload.teamName) {
-        setFlashTeam(payload.teamName);
+      } else if (data.teamName) {
+        setFlashTeam(data.teamName);
         setTimeout(() => setFlashTeam(null), 4000);
       }
-      mutate(); // Revalidate data
+      load();
     });
+
+    // Fallback: refresh every 30 seconds in case SSE misses something
+    pollRef.current = setInterval(load, 30_000);
 
     return () => {
       es.close();
+      if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [mutate]);
-
-  const loading = !data && !error;
-  const lastUpdated = data?.generatedAt ? new Date(data.generatedAt) : null;
+  }, [load]);
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
@@ -296,7 +205,7 @@ export default function LeaderboardPage() {
             Live Leaderboard
           </h1>
           <p className="text-sm text-muted mt-1">
-            Rankings auto-update with smart caching for smooth performance
+            Rankings auto-update every 2 min when teams push to GitHub
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted">
@@ -332,32 +241,80 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Error state */}
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          Failed to load leaderboard. Retrying automatically...
-        </div>
-      )}
-
-      {/* Team cards - optimized rendering */}
-      {!loading && rows.length > 0 && (
+      {/* Team cards */}
+      {!loading && (
         <div className="space-y-4">
-          {rows.map((row, i) => (
-            <TeamCard
-              key={row.teamId}
-              row={row}
-              index={i}
-              isFlash={flashTeam === row.teamName}
-              isNew={newTeamId === row.teamId}
-              milestones={milestones}
-            />
-          ))}
-        </div>
-      )}
+          {rows.map((row, i) => {
+            const isFlash = flashTeam === row.teamName;
+            const isNew = newTeamId === row.teamId;
+            const medal = RANK_MEDALS[row.rank];
+            const lvlGradient = LEVEL_COLORS[row.level] ?? LEVEL_COLORS[1];
+            const doneCount = milestones.filter(m => row.milestones.includes(m.code)).length;
 
-      {!loading && rows.length === 0 && (
-        <div className="rounded-2xl border border-border bg-card px-6 py-16 text-center text-muted">
-          No teams have registered yet. Be the first!
+            return (
+              <div
+                key={row.teamId}
+                className={`leaderboard-card relative rounded-2xl border transition-all duration-500 animate-[slideUp_0.4s_ease-out_both]
+                  ${isFlash ? "border-violet-400/70 shadow-[0_0_24px_rgba(139,92,246,0.3)]" : "border-border"}
+                  ${isNew ? "border-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.3)]" : ""}
+                  bg-card
+                `}
+                data-index={i}
+              >
+                {/* Rank accent stripe */}
+                <div
+                  className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-gradient-to-b ${lvlGradient}`}
+                />
+
+                <div className="pl-5 pr-5 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Rank + team info */}
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    {/* Rank badge */}
+                    <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-card-strong border border-border text-center">
+                      {medal
+                        ? <span className="text-2xl leading-none">{medal}</span>
+                        : <span className="text-xl font-bold text-muted">#{row.rank}</span>
+                      }
+                    </div>
+
+                    {/* Name + level + XP */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-lg text-foreground truncate">{row.teamName}</span>
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r ${lvlGradient} text-white`}>
+                          Lvl {row.level}
+                        </span>
+                        {doneCount === milestones.length && milestones.length > 0 && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400/30">
+                            🏆 Complete
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted mt-0.5">
+                        <AnimatedXP value={row.xp} flash={isFlash} />
+                        <span className="text-muted font-normal ml-1">XP</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Milestone track */}
+                  <div className="sm:w-1/2 flex-shrink-0">
+                    <MilestoneTrack
+                      milestones={milestones}
+                      completed={row.milestones}
+                      flash={isFlash}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {rows.length === 0 && (
+            <div className="rounded-2xl border border-border bg-card px-6 py-16 text-center text-muted">
+              No teams have registered yet. Be the first!
+            </div>
+          )}
         </div>
       )}
 

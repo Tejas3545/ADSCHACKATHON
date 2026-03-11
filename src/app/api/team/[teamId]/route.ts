@@ -1,5 +1,6 @@
 import { getCollections } from "@/lib/collections";
 import { levelFromXp } from "@/lib/models";
+import { serverCache, CacheKeys, CacheTTL } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,19 @@ export async function GET(
   { params }: { params: Promise<{ teamId: string }> }
 ) {
   const { teamId } = await params;
+  
+  // Check cache first
+  const cacheKey = CacheKeys.TEAM(teamId);
+  const cached = serverCache.get(cacheKey);
+  if (cached) {
+    return Response.json(cached, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        'X-Cache': 'HIT',
+      },
+    });
+  }
+
   const { teams, submissions, milestones } = await getCollections();
 
   const team = await teams.findOne({ _id: teamId });
@@ -22,7 +36,7 @@ export async function GET(
       .toArray(),
   ]);
 
-  return Response.json({
+  const result = {
     ok: true,
     team: {
       teamId: team._id,
@@ -42,5 +56,15 @@ export async function GET(
       coins: m.coins,
     })),
     submissions: subs,
+  };
+
+  // Cache the result
+  serverCache.set(cacheKey, result, CacheTTL.TEAM);
+
+  return Response.json(result, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+      'X-Cache': 'MISS',
+    },
   });
 }

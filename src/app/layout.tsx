@@ -65,12 +65,6 @@ export default function RootLayout({
                 >
                   Team Dashboard
                 </Link>
-                <Link
-                  href="/admin"
-                  className="rounded-full px-3 py-2 text-muted transition-colors hover:bg-card hover:text-foreground sm:px-4"
-                >
-                  Admin
-                </Link>
               </nav>
             </div>
           </header>

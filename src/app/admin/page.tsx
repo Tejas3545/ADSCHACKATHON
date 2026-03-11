@@ -155,166 +155,303 @@ export default function AdminPage() {
       </div>
 
       {activeTab === "teams" && (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 z-10 border-b border-border bg-card-strong text-muted">
-                <tr>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Team Name</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Team ID</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Stats</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Status</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data?.teams.map((team: Team) => (
-                  <tr key={team._id} className="transition-colors hover:bg-card-strong/50">
-                    <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">{team.name}</td>
-                    <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-muted">{team._id}</td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="text-accent-2 font-bold">{team.xp} XP</span>
-                      <span className="text-muted mx-2">•</span>
-                      <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      {team.frozen ? (
-                        <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-500">Active</span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleAction(team.frozen ? "unfreezeTeam" : "freezeTeam", { teamId: team._id })}
-                          className="text-xs bg-card-strong px-3 py-1.5 rounded-md hover:bg-border transition-colors"
-                        >
-                          {team.frozen ? "Unfreeze" : "Freeze"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            const amt = prompt("Enter XP to add (use negative to subtract):");
-                            if (amt && !isNaN(parseInt(amt))) {
-                              handleAction("adjustXp", { teamId: team._id, amount: parseInt(amt, 10) });
-                            }
-                          }}
-                          className="text-xs bg-card-strong px-3 py-1.5 rounded-md hover:bg-border transition-colors"
-                        >
-                          Adjust XP
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {data?.teams.length === 0 && (
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 border-b border-border bg-card-strong text-muted">
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-muted">No teams registered yet.</td>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Team Name</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Team ID</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Stats</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Status</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium text-right">Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "submissions" && (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 z-10 border-b border-border bg-card-strong text-muted">
-                <tr>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Milestone</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Team</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Status</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium">Reason</th>
-                  <th className="whitespace-nowrap px-6 py-4 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data?.submissions.map((sub: MilestoneSubmission) => {
-                  const team = data.teams.find((t: Team) => t._id === sub.teamId);
-                  const milestone = data.milestones.find((m: Milestone) => m._id === sub.milestoneId);
-                  
-                  return (
-                    <tr key={sub._id} className="transition-colors hover:bg-card-strong/50">
-                      <td className="whitespace-nowrap px-6 py-4 font-bold text-accent">{sub.milestoneCode}</td>
-                      <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">{team?.name || sub.teamId}</td>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data?.teams.map((team: Team) => (
+                    <tr key={team._id} className="transition-colors hover:bg-card-strong/50">
+                      <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">{team.name}</td>
+                      <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-muted">{team._id}</td>
                       <td className="whitespace-nowrap px-6 py-4">
-                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                          sub.status === 'verified' ? 'border-green-500/30 bg-green-500/10 text-green-500' : 
-                          sub.status === 'rejected' ? 'border-red-500/30 bg-red-500/10 text-red-500' : 
-                          'border-yellow-500/30 bg-yellow-500/10 text-yellow-500'
-                        }`}>
-                          {sub.status.toUpperCase()}
-                        </span>
+                        <span className="text-accent-2 font-bold">{team.xp} XP</span>
+                        <span className="text-muted mx-2">•</span>
+                        <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
                       </td>
-                      <td className="px-6 py-4 text-xs text-muted max-w-xs truncate" title={sub.reason || ""}>
-                        {sub.reason || "-"}
+                      <td className="whitespace-nowrap px-6 py-4">
+                        {team.frozen ? (
+                          <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-500">Active</span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          {sub.status !== "verified" && (
-                            <>
+                          <button
+                            onClick={() => handleAction(team.frozen ? "unfreezeTeam" : "freezeTeam", { teamId: team._id })}
+                            className="text-xs bg-card-strong px-3 py-1.5 rounded-md hover:bg-border transition-colors"
+                          >
+                            {team.frozen ? "Unfreeze" : "Freeze"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              const amt = prompt("Enter XP to add (use negative to subtract):");
+                              if (amt && !isNaN(parseInt(amt))) {
+                                handleAction("adjustXp", { teamId: team._id, amount: parseInt(amt, 10) });
+                              }
+                            }}
+                            className="text-xs bg-card-strong px-3 py-1.5 rounded-md hover:bg-border transition-colors"
+                          >
+                            Adjust XP
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {data?.teams.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-muted">No teams registered yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {data?.teams.map((team: Team) => (
+              <div key={team._id} className="rounded-xl border border-border bg-card p-4 shadow-lg space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-foreground">{team.name}</h3>
+                    <p className="text-xs font-mono text-muted mt-1">{team._id}</p>
+                  </div>
+                  {team.frozen ? (
+                    <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-semibold text-green-500">Active</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-accent-2 font-bold">{team.xp} XP</span>
+                  <span className="text-muted">•</span>
+                  <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => handleAction(team.frozen ? "unfreezeTeam" : "freezeTeam", { teamId: team._id })}
+                    className="flex-1 text-xs bg-card-strong px-3 py-2 rounded-md hover:bg-border transition-colors"
+                  >
+                    {team.frozen ? "Unfreeze" : "Freeze"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const amt = prompt("Enter XP to add (use negative to subtract):");
+                      if (amt && !isNaN(parseInt(amt))) {
+                        handleAction("adjustXp", { teamId: team._id, amount: parseInt(amt, 10) });
+                      }
+                    }}
+                    className="flex-1 text-xs bg-card-strong px-3 py-2 rounded-md hover:bg-border transition-colors"
+                  >
+                    Adjust XP
+                  </button>
+                </div>
+              </div>
+            ))}
+            {data?.teams.length === 0 && (
+              <div className="rounded-xl border border-border bg-card px-6 py-8 text-center text-muted">
+                No teams registered yet.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {activeTab === "submissions" && (
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 border-b border-border bg-card-strong text-muted">
+                  <tr>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Milestone</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Team</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Status</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium">Reason</th>
+                    <th className="whitespace-nowrap px-6 py-4 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data?.submissions.map((sub: MilestoneSubmission) => {
+                    const team = data.teams.find((t: Team) => t._id === sub.teamId);
+                    const milestone = data.milestones.find((m: Milestone) => m._id === sub.milestoneId);
+                    
+                    return (
+                      <tr key={sub._id} className="transition-colors hover:bg-card-strong/50">
+                        <td className="whitespace-nowrap px-6 py-4 font-bold text-accent">{sub.milestoneCode}</td>
+                        <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">{team?.name || sub.teamId}</td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                            sub.status === 'verified' ? 'border-green-500/30 bg-green-500/10 text-green-500' : 
+                            sub.status === 'rejected' ? 'border-red-500/30 bg-red-500/10 text-red-500' : 
+                            'border-yellow-500/30 bg-yellow-500/10 text-yellow-500'
+                          }`}>
+                            {sub.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-muted max-w-xs truncate" title={sub.reason || ""}>
+                          {sub.reason || "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            {sub.status !== "verified" && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    if (confirm("Are you sure you want to manually approve this submission?")) {
+                                      handleAction("updateSubmission", { 
+                                        submissionId: sub._id, 
+                                        status: "verified", 
+                                        teamId: sub.teamId, 
+                                        xp: milestone?.xp, 
+                                        coins: milestone?.coins 
+                                      });
+                                    }
+                                  }}
+                                  className="text-xs bg-green-500/20 text-green-500 px-3 py-1.5 rounded-md hover:bg-green-500/30 transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const reason = prompt("Enter rejection reason:");
+                                    if (reason) {
+                                      handleAction("updateSubmission", { submissionId: sub._id, status: "rejected", reason });
+                                    }
+                                  }}
+                                  className="text-xs bg-red-500/20 text-red-500 px-3 py-1.5 rounded-md hover:bg-red-500/30 transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {sub.status === "verified" && (
                               <button
                                 onClick={() => {
-                                  if (confirm("Are you sure you want to manually approve this submission?")) {
+                                  if (confirm("Are you sure you want to revoke this approval? This will NOT remove the XP/Coins automatically.")) {
                                     handleAction("updateSubmission", { 
                                       submissionId: sub._id, 
-                                      status: "verified", 
-                                      teamId: sub.teamId, 
-                                      xp: milestone?.xp, 
-                                      coins: milestone?.coins 
+                                      status: "rejected", 
+                                      reason: "Manually revoked by admin" 
                                     });
-                                  }
-                                }}
-                                className="text-xs bg-green-500/20 text-green-500 px-3 py-1.5 rounded-md hover:bg-green-500/30 transition-colors"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const reason = prompt("Enter rejection reason:");
-                                  if (reason) {
-                                    handleAction("updateSubmission", { submissionId: sub._id, status: "rejected", reason });
                                   }
                                 }}
                                 className="text-xs bg-red-500/20 text-red-500 px-3 py-1.5 rounded-md hover:bg-red-500/30 transition-colors"
                               >
-                                Reject
+                                Revoke
                               </button>
-                            </>
-                          )}
-                          {sub.status === "verified" && (
-                            <button
-                              onClick={() => {
-                                if (confirm("Are you sure you want to revoke this approval? This will NOT remove the XP/Coins automatically.")) {
-                                  handleAction("updateSubmission", { 
-                                    submissionId: sub._id, 
-                                    status: "rejected", 
-                                    reason: "Manually revoked by admin" 
-                                  });
-                                }
-                              }}
-                              className="text-xs bg-red-500/20 text-red-500 px-3 py-1.5 rounded-md hover:bg-red-500/30 transition-colors"
-                            >
-                              Revoke
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {data?.submissions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-muted">No submissions yet.</td>
                     </tr>
-                  );
-                })}
-                {data?.submissions.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-muted">No submissions yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {data?.submissions.map((sub: MilestoneSubmission) => {
+              const team = data.teams.find((t: Team) => t._id === sub.teamId);
+              const milestone = data.milestones.find((m: Milestone) => m._id === sub.milestoneId);
+              
+              return (
+                <div key={sub._id} className="rounded-xl border border-border bg-card p-4 shadow-lg space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-bold text-accent">{sub.milestoneCode}</h3>
+                      <p className="text-sm text-foreground mt-1">{team?.name || sub.teamId}</p>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                      sub.status === 'verified' ? 'border-green-500/30 bg-green-500/10 text-green-500' : 
+                      sub.status === 'rejected' ? 'border-red-500/30 bg-red-500/10 text-red-500' : 
+                      'border-yellow-500/30 bg-yellow-500/10 text-yellow-500'
+                    }`}>
+                      {sub.status.toUpperCase()}
+                    </span>
+                  </div>
+                  {sub.reason && (
+                    <div className="text-xs text-muted bg-card-strong p-2 rounded">
+                      <span className="font-semibold">Reason:</span> {sub.reason}
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    {sub.status !== "verified" && (
+                      <>
+                        <button
+                          onClick={() => {
+                            if (confirm("Are you sure you want to manually approve this submission?")) {
+                              handleAction("updateSubmission", { 
+                                submissionId: sub._id, 
+                                status: "verified", 
+                                teamId: sub.teamId, 
+                                xp: milestone?.xp, 
+                                coins: milestone?.coins 
+                              });
+                            }
+                          }}
+                          className="flex-1 text-xs bg-green-500/20 text-green-500 px-3 py-2 rounded-md hover:bg-green-500/30 transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => {
+                            const reason = prompt("Enter rejection reason:");
+                            if (reason) {
+                              handleAction("updateSubmission", { submissionId: sub._id, status: "rejected", reason });
+                            }
+                          }}
+                          className="flex-1 text-xs bg-red-500/20 text-red-500 px-3 py-2 rounded-md hover:bg-red-500/30 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {sub.status === "verified" && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Are you sure you want to revoke this approval? This will NOT remove the XP/Coins automatically.")) {
+                            handleAction("updateSubmission", { 
+                              submissionId: sub._id, 
+                              status: "rejected", 
+                              reason: "Manually revoked by admin" 
+                            });
+                          }
+                        }}
+                        className="w-full text-xs bg-red-500/20 text-red-500 px-3 py-2 rounded-md hover:bg-red-500/30 transition-colors"
+                      >
+                        Revoke Approval
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {data?.submissions.length === 0 && (
+              <div className="rounded-xl border border-border bg-card px-6 py-8 text-center text-muted">
+                No submissions yet.
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

@@ -84,7 +84,11 @@ export default function TeamDashboardPage() {
           colors: ["#7c5cff", "#22d3ee", "#eab308", "#ffffff"],
         });
         setTimeout(() => {
-          alert(`Success! Earned ${json.xpAwarded} XP and ${json.coinsAwarded} Coins.`);
+          let message = `Success! Earned ${json.xpAwarded} XP and ${json.coinsAwarded} Coins.`;
+          if (json.bonusMessage) {
+            message += `\n\n${json.bonusMessage}`;
+          }
+          alert(message);
         }, 500);
       }
 

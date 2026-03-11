@@ -1,6 +1,7 @@
 import { getCollections } from "@/lib/collections";
 import { assertAdmin } from "@/lib/admin";
 import { broadcast } from "@/lib/broadcaster";
+import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +38,18 @@ export async function POST(req: Request) {
       );
 
       if (payload.status === "verified" && payload.teamId && payload.xp) {
+        // Get submission to check creation time for time-based bonus
+        const submission = await submissions.findOne({ _id: payload.submissionId });
+        const completionTime = submission?.createdAt || new Date();
+        
+        // Calculate XP with time-based bonus
+        const xpCalculation = calculateXPWithTimeBonus(payload.xp, completionTime);
+        const xpToAward = xpCalculation.totalXP;
+        
         await teams.updateOne(
           { _id: payload.teamId },
           {
-            $inc: { xp: payload.xp, coins: payload.coins || 0 },
+            $inc: { xp: xpToAward, coins: payload.coins || 0 },
             $set: { lastXpAt: new Date() },
           }
         );

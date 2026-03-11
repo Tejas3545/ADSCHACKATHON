@@ -1,5 +1,7 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
+import { calculateXPWithTimeBonus, getTimeBonusDescription } from "@/lib/xp-calculator";
+import { serverCache, CacheKeys } from "@/lib/cache";
 import { nanoid } from "nanoid";
 
 export const dynamic = "force-dynamic";
@@ -121,16 +123,35 @@ export async function POST(
     });
 
     if (status === "verified") {
+      // Calculate XP with time-based bonus
+      const xpCalculation = calculateXPWithTimeBonus(milestone.xp, now);
+      const xpToAward = xpCalculation.totalXP;
+      
       // Award XP and Coins immediately
       await teams.updateOne(
         { _id: teamId },
         { 
-          $inc: { xp: milestone.xp, coins: milestone.coins },
+          $inc: { xp: xpToAward, coins: milestone.coins },
           $set: { lastXpAt: now }
         }
       );
+      
+      // Invalidate caches for this team and leaderboard
+      serverCache.invalidate(CacheKeys.TEAM(teamId));
+      serverCache.invalidate(CacheKeys.LEADERBOARD);
+      
       broadcast("leaderboard-update", { teamId, teamName: team.name });
-      return Response.json({ ok: true, status: "verified", xpAwarded: milestone.xp, coinsAwarded: milestone.coins });
+      
+      return Response.json({ 
+        ok: true, 
+        status: "verified", 
+        xpAwarded: xpToAward,
+        baseXP: milestone.xp,
+        bonusXP: xpCalculation.bonusXP,
+        multiplier: xpCalculation.multiplier,
+        bonusMessage: getTimeBonusDescription(xpCalculation),
+        coinsAwarded: milestone.coins 
+      });
     } else {
       return Response.json({ ok: true, status: "pending", xpAwarded: 0, coinsAwarded: 0 });
     }

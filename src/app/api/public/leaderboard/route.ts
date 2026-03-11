@@ -1,9 +1,21 @@
 import { getCollections } from "@/lib/collections";
 import { levelFromXp } from "@/lib/models";
+import { serverCache, CacheKeys, CacheTTL } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Check cache first
+  const cached = serverCache.get(CacheKeys.LEADERBOARD);
+  if (cached) {
+    return Response.json(cached, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'X-Cache': 'HIT',
+      },
+    });
+  }
+
   const { teams, submissions, milestones } = await getCollections();
 
   const [teamDocs, milestoneDocs] = await Promise.all([
@@ -44,9 +56,19 @@ export async function GET() {
     milestones: (byTeam[t._id] ?? []).sort(),
   }));
 
-  return Response.json({
+  const result = {
     generatedAt: new Date().toISOString(),
     milestones: milestoneDocs,
     rows,
+  };
+
+  // Cache the result
+  serverCache.set(CacheKeys.LEADERBOARD, result, CacheTTL.LEADERBOARD);
+
+  return Response.json(result, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      'X-Cache': 'MISS',
+    },
   });
 }

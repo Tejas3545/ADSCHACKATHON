@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState, useCallback, memo, useMemo } from "react";
+import { useEffect, useRef, useState, memo, useMemo } from "react";
 import useSWR from "swr";
 
 type MilestoneCol = { _id: string; code: string; title: string; xp: number };
@@ -73,7 +73,6 @@ const MilestoneTrack = memo(function MilestoneTrack({
   flash: boolean;
 }) {
   const total = milestones.length;
-  if (total === 0) return null;
   
   const doneCount = useMemo(
     () => milestones.filter(m => completed.includes(m.code)).length,
@@ -82,6 +81,8 @@ const MilestoneTrack = memo(function MilestoneTrack({
   
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
   const trackId = useMemo(() => `track-${completed.join('-')}`, [completed]);
+  
+  if (total === 0) return null;
 
   return (
     <div className="w-full space-y-2">
