@@ -14,7 +14,7 @@ export const RepoSchema = z.object({
 export const TeamSchema = z.object({
   _id: z.string(),
   name: z.string().min(2).max(80),
-  members: z.array(TeamMemberSchema).min(1).max(7),
+  members: z.array(TeamMemberSchema).min(1).max(4),
   repo: RepoSchema,
   createdAt: z.date(),
   xp: z.number().int().nonnegative(),
