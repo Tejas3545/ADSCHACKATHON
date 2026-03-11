@@ -14,7 +14,7 @@ export const RepoSchema = z.object({
 export const TeamSchema = z.object({
   _id: z.string(),
   name: z.string().min(2).max(80),
-  members: z.array(TeamMemberSchema).min(1).max(4),
+  members: z.array(TeamMemberSchema).min(1).max(7),
   repo: RepoSchema,
   createdAt: z.date(),
   xp: z.number().int().nonnegative(),
@@ -83,6 +83,15 @@ export const MilestoneSubmissionSchema = z.object({
       prUrl: z.string().nullable().default(null),
     })
     .default({ headSha: null, prUrl: null }),
+  xpAwarded: z.number().int().optional(),
+  xpBreakdown: z
+    .object({
+      baseXP: z.number().int(),
+      multiplier: z.number(),
+      bonusXP: z.number().int(),
+      completionPercentage: z.number(),
+    })
+    .optional(),
 });
 
 export type MilestoneSubmission = z.infer<typeof MilestoneSubmissionSchema>;

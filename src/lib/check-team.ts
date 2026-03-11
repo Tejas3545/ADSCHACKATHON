@@ -7,6 +7,8 @@
 
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
+import { quickValidateCommit } from "@/lib/commit-validator";
+import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
 import { nanoid } from "nanoid";
 import type { Team } from "@/lib/models";
 
@@ -52,6 +54,20 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
     ? (await commitRes.json() as { files?: { additions: number; filename: string }[] })
     : { files: [] };
   const filesChanged = commitData.files ?? [];
+
+  // ── Step 3.5: Validate commit quality to filter spam ──────────────────
+  const validation = quickValidateCommit(filesChanged, 10, 1);
+  if (!validation.isValid) {
+    console.log(`[check-team] ${team.name} commit ${headSha.substring(0, 7)} rejected: ${validation.reason} (score: ${validation.qualityScore})`);
+    // Update lastCheckedSha to avoid re-checking this spam commit
+    await getCollections().then(({ teams: teamsCol }) => 
+      teamsCol.updateOne({ _id: team._id }, { $set: { lastCheckedSha: headSha } })
+    );
+    return { 
+      skipped: true, 
+      reason: `Commit quality check failed: ${validation.reason}` 
+    };
+  }
 
   // ── Step 4: Load active milestones not yet verified for this team ────────
   const { teams, milestones, submissions } = await getCollections();
@@ -117,8 +133,10 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         }
       }
 
-      // ── All checks passed → award XP ─────────────────────────────────
+      // ── All checks passed → award XP with time bonus ─────────────────────
+      const xpResult = calculateXPWithTimeBonus(milestone.xp, now);
       const subId = nanoid(10);
+      
       await submissions.insertOne({
         _id: subId,
         teamId: team._id,
@@ -129,15 +147,24 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         status: "verified",
         reason: null,
         github: { headSha, prUrl: null },
+        xpAwarded: xpResult.totalXP,
+        xpBreakdown: {
+          baseXP: xpResult.baseXP,
+          multiplier: xpResult.multiplier,
+          bonusXP: xpResult.bonusXP,
+          completionPercentage: xpResult.completionPercentage,
+        },
       });
 
       await teams.updateOne(
         { _id: team._id },
         {
-          $inc: { xp: milestone.xp, coins: milestone.coins },
+          $inc: { xp: xpResult.totalXP, coins: milestone.coins },
           $set: { lastXpAt: now },
         }
       );
+      
+      console.log(`[check-team] ${team.name} earned ${xpResult.totalXP} XP for ${milestone.code} (base: ${xpResult.baseXP}, multiplier: ${xpResult.multiplier}x, completion: ${xpResult.completionPercentage}%)`);
 
       results[milestone.code] = "verified";
       verifiedCodes.add(milestone.code);

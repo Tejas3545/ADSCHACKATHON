@@ -24,6 +24,9 @@ export default function RegisterPage() {
       formData.get("member2") as string,
       formData.get("member3") as string,
       formData.get("member4") as string,
+      formData.get("member5") as string,
+      formData.get("member6") as string,
+      formData.get("member7") as string,
     ].filter(Boolean);
 
     try {
@@ -121,7 +124,7 @@ export default function RegisterPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Team Members (1-4)
+              Team Members (1-7)
             </label>
             <div className="space-y-2">
               <input
@@ -144,6 +147,21 @@ export default function RegisterPage() {
                 name="member4"
                 className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 placeholder="Member 4 Name (Optional)"
+              />
+              <input
+                name="member5"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                placeholder="Member 5 Name (Optional)"
+              />
+              <input
+                name="member6"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                placeholder="Member 6 Name (Optional)"
+              />
+              <input
+                name="member7"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                placeholder="Member 7 Name (Optional)"
               />
             </div>
           </div>
