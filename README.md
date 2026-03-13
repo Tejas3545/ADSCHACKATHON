@@ -16,7 +16,7 @@ A real-time live leaderboard for hackathon events. Teams register their GitHub r
 
 ## How It Works
 
-1. Teams register on `/register` with their name, members, and GitHub repo URL
+1. Teams register on `/register` with their team number (1-90), name, members, and GitHub repo URL
 2. Every 2 minutes, the server polls each team's GitHub repo for new commits
 3. If a commit satisfies milestone rules (files present, keywords found, lines added), XP is awarded automatically
 4. The live leaderboard at `/leaderboard` updates in real-time via Server-Sent Events

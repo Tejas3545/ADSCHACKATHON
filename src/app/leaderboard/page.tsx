@@ -225,6 +225,9 @@ const TeamCard = memo(function TeamCard({
               <AnimatedXP value={row.xp} flash={isFlash} />
               <span className="text-muted font-normal ml-1">XP</span>
             </div>
+            <div className="text-xs text-muted mt-0.5 font-mono">
+              Team No: {row.teamId}
+            </div>
           </div>
         </div>
 

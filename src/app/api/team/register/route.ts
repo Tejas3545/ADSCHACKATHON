@@ -1,11 +1,11 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
-import { nanoid } from "nanoid";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
+  teamNumber: z.number().int().min(1).max(90),
   teamName: z.string().min(2).max(80),
   members: z.array(z.string().min(1).max(80)).min(1).max(4),
   repoUrl: z.string().url(),
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       console.warn("Could not reach GitHub API during registration (network/TLS issue). Skipping pre-check.");
     }
 
-    const teamId = nanoid(10);
+    const teamId = `TM${body.data.teamNumber.toString().padStart(3, "0")}`;
     const now = new Date();
 
     const doc = {
@@ -120,7 +120,15 @@ export async function POST(req: Request) {
     try {
       await teams.insertOne(doc);
       broadcast("leaderboard-update", { teamId, teamName: body.data.teamName, newTeam: true });
-    } catch {
+    } catch (err: unknown) {
+      const duplicateError = err as { code?: number; keyPattern?: Record<string, number> };
+      if (duplicateError?.code === 11000 && duplicateError?.keyPattern?._id) {
+        return Response.json(
+          { ok: false, error: `Team ID ${teamId} is already taken. Please choose another team number.` },
+          { status: 409 }
+        );
+      }
+
       return Response.json(
         { ok: false, error: "Team name already exists" },
         { status: 409 }

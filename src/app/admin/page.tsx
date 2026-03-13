@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Team, Milestone, MilestoneSubmission } from "@/lib/models";
 
 type DashboardData = {
@@ -17,13 +17,11 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"teams" | "submissions">("teams");
 
-  async function fetchDashboard(pwd: string) {
+  async function fetchDashboard(silent = false) {
     setLoading(true);
-    setError("");
+    if (!silent) setError("");
     try {
-      const res = await fetch("/api/admin/dashboard", {
-        headers: { "x-admin-password": pwd },
-      });
+      const res = await fetch("/api/admin/dashboard", { cache: "no-store" });
       let json: any = {};
       try {
         json = await res.json();
@@ -34,6 +32,10 @@ export default function AdminPage() {
       setData(json);
       setLoggedIn(true);
     } catch (err: unknown) {
+      if (silent) {
+        setLoggedIn(false);
+        return;
+      }
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -45,9 +47,33 @@ export default function AdminPage() {
     }
   }
 
+  useEffect(() => {
+    fetchDashboard(true);
+  }, []);
+
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    fetchDashboard(password);
+    setLoading(true);
+    setError("");
+
+    fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || "Login failed");
+        await fetchDashboard(true);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("An unknown error occurred");
+        }
+      })
+      .finally(() => setLoading(false));
   }
 
   async function handleAction(action: string, payload: Record<string, unknown>) {
@@ -56,12 +82,11 @@ export default function AdminPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
         },
         body: JSON.stringify({ action, payload }),
       });
       if (!res.ok) throw new Error("Action failed");
-      fetchDashboard(password);
+      fetchDashboard(true);
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert(err.message);
@@ -90,18 +115,28 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/internal/reset-database", {
         method: "POST",
-        headers: { "x-admin-password": password },
       });
       if (!res.ok) throw new Error("Failed to reset database");
       const result = await res.json();
       alert(`Database reset complete!\n\nDeleted:\n- Teams: ${result.deleted.teams}\n- Submissions: ${result.deleted.submissions}\n- Milestones: ${result.deleted.milestones}\n\nYou can now start fresh!`);
-      fetchDashboard(password);
+      fetchDashboard(true);
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert(err.message);
       } else {
         alert("An unknown error occurred");
       }
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } finally {
+      setLoggedIn(false);
+      setData(null);
+      setPassword("");
+      setError("");
     }
   }
 
@@ -139,12 +174,20 @@ export default function AdminPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-sm sm:text-base text-muted">Manage teams, milestones, and submissions.</p>
         </div>
-        <button 
-          onClick={resetDatabase} 
-          className="w-full sm:w-auto rounded-lg bg-red-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white hover:bg-red-600"
-        >
-          🗑️ Reset Database
-        </button>
+        <div className="flex w-full sm:w-auto gap-2">
+          <button
+            onClick={handleLogout}
+            className="w-full sm:w-auto rounded-lg border border-border bg-card-strong px-4 py-2.5 sm:py-2 text-sm font-semibold text-foreground hover:bg-card-strong/80"
+          >
+            Logout
+          </button>
+          <button 
+            onClick={resetDatabase} 
+            className="w-full sm:w-auto rounded-lg bg-red-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white hover:bg-red-600"
+          >
+            🗑️ Reset Database
+          </button>
+        </div>
       </div>
 
       <div className="flex space-x-4 border-b border-border">
