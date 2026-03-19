@@ -7,7 +7,40 @@ type DashboardData = {
   teams: Team[];
   milestones: Milestone[];
   submissions: MilestoneSubmission[];
+  leaderboardState?: {
+    isRunning: boolean;
+    startedAt: string | null;
+    endedAt: string | null;
+  };
 };
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <path d="M8 6.5v11l9-5.5-9-5.5Z" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <rect x="7" y="7" width="10" height="10" rx="1" />
+    </svg>
+  );
+}
 
 export default function AdminPage() {
   const [password, setPassword] = useState("");
@@ -22,7 +55,7 @@ export default function AdminPage() {
     if (!silent) setError("");
     try {
       const res = await fetch("/api/admin/dashboard", { cache: "no-store" });
-      let json: any = {};
+      let json: DashboardData & { error?: string } = { teams: [], milestones: [], submissions: [] };
       try {
         json = await res.json();
       } catch {
@@ -98,7 +131,7 @@ export default function AdminPage() {
 
   async function resetDatabase() {
     const confirmed = confirm(
-      "⚠️ WARNING: This will delete ALL data (teams, submissions, and milestones). This action cannot be undone. Are you sure?"
+      "WARNING: This will delete ALL data (teams, submissions, and milestones). This action cannot be undone. Are you sure?"
     );
     
     if (!confirmed) return;
@@ -147,7 +180,7 @@ export default function AdminPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Admin Login</h1>
           <p className="text-sm sm:text-base text-muted">Enter the admin password to access the dashboard.</p>
         </div>
-        <form onSubmit={handleLogin} className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-2xl">
+        <form onSubmit={handleLogin} className="space-y-6 rounded-lg border border-border bg-card p-6 sm:p-8 shadow-sm">
           {error && <div className="rounded-lg bg-red-500/10 p-4 text-sm text-red-500">{error}</div>}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Password</label>
@@ -173,8 +206,29 @@ export default function AdminPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-sm sm:text-base text-muted">Manage teams, milestones, and submissions.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className={`inline-flex items-center rounded-md border px-2 py-0.5 font-medium ${data?.leaderboardState?.isRunning ? "border-green-500/30 bg-green-500/10 text-green-500" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+              {data?.leaderboardState?.isRunning ? "Running" : "Ended"}
+            </span>
+            {data?.leaderboardState?.startedAt && <span>Started: {new Date(data.leaderboardState.startedAt).toLocaleString()}</span>}
+            {data?.leaderboardState?.endedAt && <span>Ended: {new Date(data.leaderboardState.endedAt).toLocaleString()}</span>}
+          </div>
         </div>
-        <div className="flex w-full sm:w-auto gap-2">
+        <div className="flex w-full flex-col sm:flex-row sm:w-auto gap-2">
+          <button
+            onClick={() => handleAction("startLeaderboard", {})}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-border bg-card-strong px-4 py-2.5 sm:py-2 text-sm font-semibold text-foreground hover:bg-card-strong/80"
+          >
+            <PlayIcon />
+            Start Leaderboard
+          </button>
+          <button
+            onClick={() => handleAction("endLeaderboard", {})}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-border bg-card-strong px-4 py-2.5 sm:py-2 text-sm font-semibold text-foreground hover:bg-card-strong/80"
+          >
+            <StopIcon />
+            End Leaderboard
+          </button>
           <button
             onClick={handleLogout}
             className="w-full sm:w-auto rounded-lg border border-border bg-card-strong px-4 py-2.5 sm:py-2 text-sm font-semibold text-foreground hover:bg-card-strong/80"
@@ -183,17 +237,19 @@ export default function AdminPage() {
           </button>
           <button 
             onClick={resetDatabase} 
-            className="w-full sm:w-auto rounded-lg bg-red-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white hover:bg-red-600"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white hover:bg-red-600"
           >
-            🗑️ Reset Database
+            <TrashIcon />
+            Reset Database
           </button>
         </div>
       </div>
 
-      <div className="flex space-x-4 border-b border-border">
+      <div className="border-b border-border">
+        <div className="flex gap-4 overflow-x-auto">
         <button
           onClick={() => setActiveTab("teams")}
-          className={`pb-2 text-sm font-medium transition-colors ${
+          className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === "teams"
               ? "border-b-2 border-accent text-foreground"
               : "text-muted hover:text-foreground"
@@ -203,7 +259,7 @@ export default function AdminPage() {
         </button>
         <button
           onClick={() => setActiveTab("submissions")}
-          className={`pb-2 text-sm font-medium transition-colors ${
+          className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === "submissions"
               ? "border-b-2 border-accent text-foreground"
               : "text-muted hover:text-foreground"
@@ -211,12 +267,13 @@ export default function AdminPage() {
         >
           Submissions ({data?.submissions.length})
         </button>
+        </div>
       </div>
 
       {activeTab === "teams" && (
         <>
           {/* Desktop Table View */}
-          <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="hidden md:block overflow-hidden rounded-lg border border-border bg-card shadow-sm">
             <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-border bg-card-strong text-muted">
@@ -240,9 +297,9 @@ export default function AdminPage() {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         {team.frozen ? (
-                          <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
+                          <span className="inline-flex items-center rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
                         ) : (
-                          <span className="inline-flex items-center rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-500">Active</span>
+                          <span className="inline-flex items-center rounded-md border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-500">Active</span>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
@@ -280,16 +337,16 @@ export default function AdminPage() {
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
             {data?.teams.map((team: Team) => (
-              <div key={team._id} className="rounded-xl border border-border bg-card p-4 shadow-lg space-y-3">
+              <div key={team._id} className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-bold text-foreground">{team.name}</h3>
                     <p className="text-xs font-mono text-muted mt-1">{team._id}</p>
                   </div>
                   {team.frozen ? (
-                    <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
+                    <span className="inline-flex items-center rounded-md border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500">Frozen</span>
                   ) : (
-                    <span className="inline-flex items-center rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-semibold text-green-500">Active</span>
+                    <span className="inline-flex items-center rounded-md border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-semibold text-green-500">Active</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-sm">
@@ -319,7 +376,7 @@ export default function AdminPage() {
               </div>
             ))}
             {data?.teams.length === 0 && (
-              <div className="rounded-xl border border-border bg-card px-6 py-8 text-center text-muted">
+              <div className="rounded-lg border border-border bg-card px-6 py-8 text-center text-muted shadow-sm">
                 No teams registered yet.
               </div>
             )}
@@ -330,7 +387,7 @@ export default function AdminPage() {
       {activeTab === "submissions" && (
         <>
           {/* Desktop Table View */}
-          <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="hidden md:block overflow-hidden rounded-lg border border-border bg-card shadow-sm">
             <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-border bg-card-strong text-muted">
@@ -352,7 +409,7 @@ export default function AdminPage() {
                         <td className="whitespace-nowrap px-6 py-4 font-bold text-accent">{sub.milestoneCode}</td>
                         <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">{team?.name || sub.teamId}</td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                          <span className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
                             sub.status === 'verified' ? 'border-green-500/30 bg-green-500/10 text-green-500' : 
                             sub.status === 'rejected' ? 'border-red-500/30 bg-red-500/10 text-red-500' : 
                             'border-yellow-500/30 bg-yellow-500/10 text-yellow-500'
@@ -433,13 +490,13 @@ export default function AdminPage() {
               const milestone = data.milestones.find((m: Milestone) => m._id === sub.milestoneId);
               
               return (
-                <div key={sub._id} className="rounded-xl border border-border bg-card p-4 shadow-lg space-y-3">
+                <div key={sub._id} className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-bold text-accent">{sub.milestoneCode}</h3>
                       <p className="text-sm text-foreground mt-1">{team?.name || sub.teamId}</p>
                     </div>
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                       sub.status === 'verified' ? 'border-green-500/30 bg-green-500/10 text-green-500' : 
                       sub.status === 'rejected' ? 'border-red-500/30 bg-red-500/10 text-red-500' : 
                       'border-yellow-500/30 bg-yellow-500/10 text-yellow-500'
@@ -505,7 +562,7 @@ export default function AdminPage() {
               );
             })}
             {data?.submissions.length === 0 && (
-              <div className="rounded-xl border border-border bg-card px-6 py-8 text-center text-muted">
+              <div className="rounded-lg border border-border bg-card px-6 py-8 text-center text-muted shadow-sm">
                 No submissions yet.
               </div>
             )}

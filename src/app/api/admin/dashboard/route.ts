@@ -1,5 +1,6 @@
 import { getCollections } from "@/lib/collections";
 import { assertAdmin } from "@/lib/admin";
+import { getLeaderboardState } from "@/lib/leaderboard-state";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
     let isAdmin = false;
     try {
       isAdmin = assertAdmin(req);
-    } catch (e) {
+    } catch {
       return Response.json({ ok: false, error: "Server misconfiguration: ADMIN_PASSWORD not set" }, { status: 500 });
     }
 
@@ -18,10 +19,11 @@ export async function GET(req: Request) {
 
     const { teams, milestones, submissions } = await getCollections();
 
-    const [allTeams, allMilestones, allSubmissions] = await Promise.all([
+    const [allTeams, allMilestones, allSubmissions, leaderboardState] = await Promise.all([
       teams.find().sort({ xp: -1 }).toArray(),
       milestones.find().sort({ sortOrder: 1 }).toArray(),
       submissions.find().sort({ createdAt: -1 }).limit(500).toArray(),
+      getLeaderboardState(),
     ]);
 
     return Response.json({
@@ -29,6 +31,7 @@ export async function GET(req: Request) {
       teams: allTeams,
       milestones: allMilestones,
       submissions: allSubmissions,
+      leaderboardState,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -2,10 +2,19 @@ import type { Collection, Db } from "mongodb";
 import { getDb } from "@/lib/db";
 import type { Milestone, MilestoneSubmission, Team } from "@/lib/models";
 
+export type LeaderboardState = {
+  _id: "leaderboard_state";
+  isRunning: boolean;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  updatedAt: Date;
+};
+
 export type Collections = {
   teams: Collection<Team>;
   milestones: Collection<Milestone>;
   submissions: Collection<MilestoneSubmission>;
+  settings: Collection<LeaderboardState>;
 };
 
 export async function getCollections(db?: Db): Promise<Collections> {
@@ -15,12 +24,13 @@ export async function getCollections(db?: Db): Promise<Collections> {
     teams: database.collection<Team>("teams"),
     milestones: database.collection<Milestone>("milestones"),
     submissions: database.collection<MilestoneSubmission>("submissions"),
+    settings: database.collection<LeaderboardState>("settings"),
   };
 }
 
 export async function ensureIndexes() {
   const db = await getDb();
-  const { teams, milestones, submissions } = await getCollections(db);
+  const { teams, milestones, submissions, settings } = await getCollections(db);
 
   await Promise.all([
     // Teams indexes
@@ -38,6 +48,7 @@ export async function ensureIndexes() {
     submissions.createIndex({ teamId: 1, status: 1 }), // Team dashboard queries
     submissions.createIndex({ status: 1, createdAt: -1 }), // Admin dashboard
     submissions.createIndex({ teamId: 1, milestoneCode: 1 }), // Fast code lookups
+    settings.createIndex({ _id: 1 }, { unique: true }),
   ]);
   
   console.log("✅ All database indexes created for optimal performance");

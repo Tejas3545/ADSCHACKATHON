@@ -3,12 +3,15 @@ import { DEFAULT_MILESTONES } from "@/lib/default-milestones";
 
 export async function ensureDefaultMilestones(): Promise<void> {
   const { milestones } = await getCollections();
-  const activeCount = await milestones.countDocuments({ active: true });
-  if (activeCount > 0) return;
-
-  try {
-    await milestones.insertMany(DEFAULT_MILESTONES, { ordered: false });
-  } catch {
-    // ignore duplicate errors when multiple requests seed simultaneously
+  for (const milestone of DEFAULT_MILESTONES) {
+    const { _id, ...rest } = milestone;
+    await milestones.updateOne(
+      { code: milestone.code },
+      {
+        $set: { ...rest, active: true },
+        $setOnInsert: { _id },
+      },
+      { upsert: true }
+    );
   }
 }

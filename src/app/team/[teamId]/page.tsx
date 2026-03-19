@@ -4,11 +4,37 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import confetti from "canvas-confetti";
 
+type SubmissionRecord = {
+  milestoneCode: string;
+  status: "pending" | "verified" | "rejected";
+  reason?: string | null;
+};
+
+type MilestoneRow = {
+  code: string;
+  title: string;
+  xp: number;
+  coins: number;
+};
+
+type TeamDashboardData = {
+  team: {
+    teamId: string;
+    name: string;
+    xp: number;
+    coins: number;
+    level: number;
+    frozen: boolean;
+  };
+  milestones: MilestoneRow[];
+  submissions: SubmissionRecord[];
+};
+
 export default function TeamDashboardPage() {
   const params = useParams();
   const teamId = params.teamId as string;
 
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<TeamDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState<string | null>(null);
@@ -62,8 +88,8 @@ export default function TeamDashboardPage() {
       }
       prevXpRef.current = json.team.xp;
       setData(json);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load team data");
     } finally {
       setLoading(false);
     }
@@ -99,8 +125,9 @@ export default function TeamDashboardPage() {
       }
 
       fetchData();
-    } catch (err: any) {
-      alert(`Validation Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Submission failed";
+      alert(`Validation Failed: ${message}`);
       fetchData();
     } finally {
       setSubmitting(null);
@@ -138,36 +165,36 @@ export default function TeamDashboardPage() {
   const { team, milestones, submissions } = data;
 
   const getStatus = (code: string) => {
-    const sub = submissions.find((s: any) => s.milestoneCode === code);
+    const sub = submissions.find((s) => s.milestoneCode === code);
     return sub ? sub.status : "pending";
   };
 
   const getReason = (code: string) => {
-    const sub = submissions.find((s: any) => s.milestoneCode === code);
+    const sub = submissions.find((s) => s.milestoneCode === code);
     return sub ? sub.reason : null;
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 px-4 sm:px-0">
+    <div className="space-y-6 px-4 sm:px-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground break-words">
+          <h1 className="text-3xl font-bold text-foreground break-words">
             {team.name}
           </h1>
-          <p className="text-sm sm:text-base text-muted">
+          <p className="text-sm text-muted">
             Team ID: <span className="font-mono text-accent break-all">{team.teamId}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-          </span>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
+            <circle cx="12" cy="12" r="2.5" />
+            <path d="M2.5 12s3.7-6 9.5-6 9.5 6 9.5 6-3.7 6-9.5 6-9.5-6-9.5-6Z" />
+          </svg>
           Live updates active
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
         <p className="text-sm text-muted">Latest commit not reflected yet? Run a manual sync.</p>
         <button
           onClick={syncNow}
@@ -179,46 +206,85 @@ export default function TeamDashboardPage() {
       </div>
 
       {syncMessage && (
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted">
+        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted shadow-sm">
           {syncMessage}
         </div>
       )}
 
       {autoRefreshed && (
-        <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm font-medium text-accent animate-pulse">
-          ✅ Dashboard auto-updated from your latest GitHub push!
+        <div className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-sm font-medium text-accent">
+          <span className="inline-flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Dashboard auto-updated from your latest GitHub push.
+          </span>
         </div>
       )}
 
+      <section className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="border-b border-border px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2 text-foreground">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
+              <circle cx="12" cy="12" r="2.5" />
+              <path d="M2.5 12s3.7-6 9.5-6 9.5 6 9.5 6-3.7 6-9.5 6-9.5-6-9.5-6Z" />
+            </svg>
+            <h2 className="text-base font-semibold">Rule Book</h2>
+          </div>
+        </div>
+        <div className="grid gap-5 px-4 py-4 sm:grid-cols-2 sm:px-5">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Milestone Criteria</h3>
+            <ul className="mt-2 space-y-1 text-sm text-muted">
+              <li>- MS1: Create repository and add README with meaningful content.</li>
+              <li>- MS2: Add frontend work under frontend folder and commit keyword match.</li>
+              <li>- MS3: Add backend work under backend folder and commit keyword match.</li>
+              <li>- MS2 and MS3 can be completed in any order.</li>
+              <li>- Weak commits like &apos;.&apos; are automatically rejected.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">XP Conditions</h3>
+            <ul className="mt-2 space-y-1 text-sm text-muted">
+              <li>- Fresh repo in event window (20-03-2026, 07:30 to 14:30): 1.0x repo multiplier.</li>
+              <li>- Mid-age repo: older commits 0.85x, new event-window commits 1.0x.</li>
+              <li>- Old repo: older commits 0.75x, continued event-window commits 0.9x.</li>
+              <li>- Final XP = base XP × time bonus × repo multiplier.</li>
+              <li>- Submissions are accepted only while leaderboard is running.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-2xl">
+        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="text-sm font-medium text-muted">Level</div>
-          <div className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">{team.level}</div>
+          <div className="mt-2 text-2xl font-bold text-foreground">{team.level}</div>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-2xl">
+        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="text-sm font-medium text-muted">Total XP</div>
-          <div className="mt-2 text-2xl sm:text-3xl font-bold text-accent-2">{team.xp}</div>
+          <div className="mt-2 text-2xl font-bold text-accent-2">{team.xp}</div>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-2xl">
+        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="text-sm font-medium text-muted">Coins</div>
-          <div className="mt-2 text-2xl sm:text-3xl font-bold text-yellow-500">{team.coins}</div>
+          <div className="mt-2 text-2xl font-bold text-yellow-500">{team.coins}</div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Milestones</h2>
+        <h2 className="text-xl font-bold text-foreground">Milestones</h2>
         <div className="grid gap-4">
-          {milestones.map((m: any) => {
+          {milestones.map((m) => {
             const status = getStatus(m.code);
             const reason = getReason(m.code);
             const isSubmitting = submitting === m.code;
 
             return (
-              <div key={m.code} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-2xl sm:flex-row sm:items-center sm:justify-between">
+              <div key={m.code} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono font-bold text-accent">{m.code}</span>
-                    <span className="font-medium text-foreground">{m.title}</span>
+                    <span className="font-medium text-foreground break-words">{m.title}</span>
                   </div>
                   <div className="flex items-center gap-4 text-xs sm:text-sm text-muted">
                     <span>{m.xp} XP</span>
@@ -233,11 +299,11 @@ export default function TeamDashboardPage() {
 
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
                   {status === "verified" ? (
-                    <span className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1.5 sm:py-1 text-sm font-medium text-green-500">
+                    <span className="inline-flex w-full sm:w-auto items-center justify-center rounded-md border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-sm font-medium text-green-500">
                       Verified ✓
                     </span>
                   ) : status === "pending" ? (
-                    <span className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 sm:py-1 text-sm font-medium text-yellow-500">
+                    <span className="inline-flex w-full sm:w-auto items-center justify-center rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-sm font-medium text-yellow-500">
                       Pending Review
                     </span>
                   ) : status === "rejected" ? (

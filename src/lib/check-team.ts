@@ -11,6 +11,10 @@ import { quickValidateCommit } from "@/lib/commit-validator";
 import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
 import { serverCache, CacheKeys } from "@/lib/cache";
 import { ensureDefaultMilestones } from "@/lib/milestone-seed";
+import { assertLeaderboardRunning } from "@/lib/leaderboard-state";
+import { resolveRepoPolicy } from "@/lib/repo-xp-policy";
+import { validateCommitMessageKeywords, validateRequiredPathPrefixes } from "@/lib/milestone-validation";
+import { buildGitHubHeaders, fetchGitHubWithTokenFallback } from "@/lib/github-utils";
 import { nanoid } from "nanoid";
 import type { Team } from "@/lib/models";
 
@@ -18,27 +22,31 @@ type CheckResult =
   | { skipped: true; reason: string }
   | { skipped: false; headSha: string; results: Record<string, "verified" | "skipped" | "failed"> };
 
-async function fetchGitHubWithTokenFallback(url: string, headers: Record<string, string>): Promise<Response> {
-  const response = await fetch(url, { headers });
-  if (response.status !== 401 || !headers.Authorization) {
-    return response;
+export async function checkTeam(team: Team): Promise<CheckResult> {
+  const runningState = await assertLeaderboardRunning();
+  if (!runningState.ok) {
+    return { skipped: true, reason: runningState.reason };
   }
 
-  const retryHeaders = { ...headers };
-  delete retryHeaders.Authorization;
-  return fetch(url, { headers: retryHeaders });
-}
-
-export async function checkTeam(team: Team): Promise<CheckResult> {
   const { owner, repo, branch } = team.repo;
 
   // Build GitHub API headers
-  const githubToken = process.env.GITHUB_TOKEN;
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "ADSC-Leaderboard",
-  };
-  if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
+  const headers = buildGitHubHeaders();
+
+  let repoCreatedAt = team.repoCreatedAt ?? null;
+  if (!repoCreatedAt) {
+    const repoRes = await fetchGitHubWithTokenFallback(`https://api.github.com/repos/${owner}/${repo}`, headers);
+    if (repoRes.ok) {
+      const repoData = (await repoRes.json().catch(() => ({} as { created_at?: string }))) as { created_at?: string };
+      if (repoData.created_at) {
+        repoCreatedAt = new Date(repoData.created_at);
+      }
+    }
+  }
+
+  if (!repoCreatedAt) {
+    return { skipped: true, reason: "Could not determine repository creation date" };
+  }
 
   // ── Step 1: Get the latest commit SHA on the team's branch ──────────────
   const branchRes = await fetchGitHubWithTokenFallback(
@@ -64,9 +72,16 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
     headers
   );
   const commitData = commitRes.ok
-    ? (await commitRes.json() as { files?: { additions: number; filename: string }[] })
+    ? (await commitRes.json() as {
+        files?: { additions: number; filename: string }[];
+        commit?: { message?: string; committer?: { date?: string } };
+      })
     : { files: [] };
   const filesChanged = commitData.files ?? [];
+  const commitMessage = commitData.commit?.message ?? "";
+  const commitAt = commitData.commit?.committer?.date
+    ? new Date(commitData.commit.committer.date)
+    : new Date();
 
   // ── Step 3.5: Validate commit quality to filter spam ──────────────────
   const validation = quickValidateCommit(filesChanged, 10, 1);
@@ -121,6 +136,19 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         }
       }
 
+      const pathPrefixValidation = validateRequiredPathPrefixes(filesChanged, milestone.rules?.requiredPathPrefixes);
+      if (!pathPrefixValidation.ok) {
+        throw new Error(pathPrefixValidation.reason);
+      }
+
+      const messageValidation = validateCommitMessageKeywords(
+        [commitMessage],
+        milestone.rules?.commitMessageKeywords
+      );
+      if (!messageValidation.ok) {
+        throw new Error(messageValidation.reason);
+      }
+
       // Check required files exist and contain correct content
       for (const fileRule of milestone.rules?.files ?? []) {
         const fileRes = await fetchGitHubWithTokenFallback(
@@ -149,6 +177,8 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
 
       // ── All checks passed → award XP with time bonus ─────────────────────
       const xpResult = calculateXPWithTimeBonus(milestone.xp, now);
+      const repoPolicy = resolveRepoPolicy(repoCreatedAt, commitAt);
+      const xpToAward = Math.round(xpResult.totalXP * repoPolicy.finalMultiplier);
       const subId = nanoid(10);
       
       await submissions.insertOne({
@@ -161,24 +191,28 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         status: "verified",
         reason: null,
         github: { headSha, prUrl: null },
-        xpAwarded: xpResult.totalXP,
+        xpAwarded: xpToAward,
         xpBreakdown: {
           baseXP: xpResult.baseXP,
           multiplier: xpResult.multiplier,
           bonusXP: xpResult.bonusXP,
           completionPercentage: xpResult.completionPercentage,
+          timeMultiplier: xpResult.multiplier,
+          repoMultiplier: repoPolicy.finalMultiplier,
+          repoTier: repoPolicy.tier,
+          policyReason: repoPolicy.reason,
         },
       });
 
       await teams.updateOne(
         { _id: team._id },
         {
-          $inc: { xp: xpResult.totalXP, coins: milestone.coins },
+          $inc: { xp: xpToAward, coins: milestone.coins },
           $set: { lastXpAt: now },
         }
       );
-      
-      console.log(`[check-team] ${team.name} earned ${xpResult.totalXP} XP for ${milestone.code} (base: ${xpResult.baseXP}, multiplier: ${xpResult.multiplier}x, completion: ${xpResult.completionPercentage}%)`);
+
+      console.log(`[check-team] ${team.name} earned ${xpToAward} XP for ${milestone.code} (time: ${xpResult.multiplier}x, repo: ${repoPolicy.finalMultiplier}x)`);
 
       results[milestone.code] = "verified";
       verifiedCodes.add(milestone.code);

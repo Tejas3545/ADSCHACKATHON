@@ -28,13 +28,10 @@
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(900px 500px at 10% 10%, rgba(124, 92, 255, 0.22), transparent 55%),
-    radial-gradient(900px 500px at 90% 20%, rgba(34, 211, 238, 0.18), transparent 55%),
-    radial-gradient(800px 500px at 50% 95%, rgba(124, 92, 255, 0.14), transparent 60%),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans);
+  line-height: 1.5;
   overflow-x: hidden;
 }
 
@@ -50,16 +47,5 @@ body {
   
   input, select, textarea {
     font-size: 16px; /* Prevents zoom on iOS */
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }

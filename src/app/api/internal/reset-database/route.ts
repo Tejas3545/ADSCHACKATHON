@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
     const seedResult = await milestones.insertMany(DEFAULT_MILESTONES);
 
-    console.log("🗑️  Database reset complete");
+    console.log("Database reset complete");
     console.log(`   - Teams deleted: ${teamsResult.deletedCount}`);
     console.log(`   - Submissions deleted: ${submissionsResult.deletedCount}`);
     console.log(`   - Milestones deleted: ${milestonesResult.deletedCount}`);

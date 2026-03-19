@@ -2,6 +2,8 @@ import { getCollections } from "@/lib/collections";
 import { assertAdmin } from "@/lib/admin";
 import { broadcast } from "@/lib/broadcaster";
 import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
+import { setLeaderboardRunning } from "@/lib/leaderboard-state";
+import { resolveRepoPolicy } from "@/lib/repo-xp-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +42,14 @@ export async function POST(req: Request) {
       if (payload.status === "verified" && payload.teamId && payload.xp) {
         // Get submission to check creation time for time-based bonus
         const submission = await submissions.findOne({ _id: payload.submissionId });
+        const team = await teams.findOne({ _id: payload.teamId });
         const completionTime = submission?.createdAt || new Date();
+        const repoCreatedAt = team?.repoCreatedAt ?? team?.createdAt ?? new Date();
         
         // Calculate XP with time-based bonus
         const xpCalculation = calculateXPWithTimeBonus(payload.xp, completionTime);
-        const xpToAward = xpCalculation.totalXP;
+        const repoPolicy = resolveRepoPolicy(repoCreatedAt, completionTime);
+        const xpToAward = Math.round(xpCalculation.totalXP * repoPolicy.finalMultiplier);
         
         await teams.updateOne(
           { _id: payload.teamId },
@@ -55,6 +60,12 @@ export async function POST(req: Request) {
         );
         broadcast("leaderboard-update", { teamId: payload.teamId, teamName: "" });
       }
+    } else if (action === "startLeaderboard") {
+      const state = await setLeaderboardRunning(true);
+      broadcast("leaderboard-update", { teamId: "system", teamName: "", state });
+    } else if (action === "endLeaderboard") {
+      const state = await setLeaderboardRunning(false);
+      broadcast("leaderboard-update", { teamId: "system", teamName: "", state });
     } else {
       return Response.json({ ok: false, error: "Unknown action" }, { status: 400 });
     }

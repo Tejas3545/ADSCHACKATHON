@@ -22,6 +22,9 @@ export const TeamSchema = z.object({
   frozen: z.boolean().default(false),
   lastXpAt: z.date().nullable().default(null),
   lastCheckedSha: z.string().nullable().optional(),
+  repoCreatedAt: z.date().nullable().optional(),
+  oldestCommitAt: z.date().nullable().optional(),
+  repoTier: z.enum(["fresh", "mid", "old"]).nullable().optional(),
 });
 
 export type Team = z.infer<typeof TeamSchema>;
@@ -40,6 +43,8 @@ export type MilestoneDiffRule = {
 export type MilestoneRules = {
   files: MilestoneFileRule[];
   diff?: MilestoneDiffRule;
+  requiredPathPrefixes?: string[];
+  commitMessageKeywords?: string[];
   requireToken?: boolean;
   tokenValue?: string;
   manualReview?: boolean;
@@ -90,6 +95,10 @@ export const MilestoneSubmissionSchema = z.object({
       multiplier: z.number(),
       bonusXP: z.number().int(),
       completionPercentage: z.number(),
+      timeMultiplier: z.number().optional(),
+      repoMultiplier: z.number().optional(),
+      repoTier: z.enum(["fresh", "mid", "old"]).optional(),
+      policyReason: z.string().optional(),
     })
     .optional(),
 });

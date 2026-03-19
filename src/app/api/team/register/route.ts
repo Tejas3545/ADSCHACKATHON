@@ -1,5 +1,6 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
+import { classifyRepoTier } from "@/lib/repo-xp-policy";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,61 @@ function parseGitHubRepo(url: string) {
   return { owner, repo };
 }
 
+async function fetchGitHubWithTokenFallback(url: string, headers: Record<string, string>): Promise<Response> {
+  const response = await fetch(url, { headers });
+  if (response.status !== 401 || !headers.Authorization) {
+    return response;
+  }
+
+  const retryHeaders = { ...headers };
+  delete retryHeaders.Authorization;
+  return fetch(url, { headers: retryHeaders });
+}
+
+function extractLastPage(linkHeader: string | null): number | null {
+  if (!linkHeader) return null;
+  const match = linkHeader.match(/<[^>]*[?&]page=(\d+)[^>]*>;\s*rel="last"/i);
+  if (!match) return null;
+  const page = Number.parseInt(match[1] ?? "", 10);
+  return Number.isFinite(page) && page > 0 ? page : null;
+}
+
+async function getOldestCommitDate(
+  owner: string,
+  repo: string,
+  branch: string,
+  headers: Record<string, string>
+): Promise<Date | null> {
+  const firstPageRes = await fetchGitHubWithTokenFallback(
+    `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=1&page=1`,
+    headers
+  );
+
+  if (!firstPageRes.ok) {
+    return null;
+  }
+
+  const lastPage = extractLastPage(firstPageRes.headers.get("link"));
+  if (!lastPage || lastPage <= 1) {
+    const latest = (await firstPageRes.json().catch(() => [])) as Array<{ commit?: { committer?: { date?: string } } }>;
+    const maybeDate = latest[0]?.commit?.committer?.date;
+    return maybeDate ? new Date(maybeDate) : null;
+  }
+
+  const oldestRes = await fetchGitHubWithTokenFallback(
+    `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=1&page=${lastPage}`,
+    headers
+  );
+
+  if (!oldestRes.ok) {
+    return null;
+  }
+
+  const oldest = (await oldestRes.json().catch(() => [])) as Array<{ commit?: { committer?: { date?: string } } }>;
+  const maybeDate = oldest[0]?.commit?.committer?.date;
+  return maybeDate ? new Date(maybeDate) : null;
+}
+
 export async function POST(req: Request) {
   try {
     let json: unknown = null;
@@ -37,16 +93,21 @@ export async function POST(req: Request) {
 
     const { owner, repo } = parseGitHubRepo(body.data.repoUrl);
 
+    const branch = body.data.branch ?? "main";
+    const githubHeaders: Record<string, string> = {
+      "User-Agent": "ADSC-Hackathon-Leaderboard",
+      Accept: "application/vnd.github.v3+json",
+      ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+    };
+
+    let repoCreatedAt: Date | null = null;
+    let oldestCommitAt: Date | null = null;
+    let repoTier: "fresh" | "mid" | "old" | null = null;
+
     // Verify GitHub Repo exists and is public.
     // We catch network/SSL errors separately — they should not block registration.
     try {
-      const ghRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers: {
-          "User-Agent": "ADSC-Hackathon-Leaderboard",
-          Accept: "application/vnd.github.v3+json",
-          ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
-        },
-      });
+      const ghRes = await fetchGitHubWithTokenFallback(`https://api.github.com/repos/${owner}/${repo}`, githubHeaders);
 
       if (ghRes.status === 404) {
         return Response.json(
@@ -63,8 +124,8 @@ export async function POST(req: Request) {
           // Allow registration to proceed - will be validated later
         } else {
           // Actually a private repo or access issue
-          const data = await ghRes.json().catch(() => ({}));
-          if ((data as any).message?.includes("API rate limit")) {
+          const data = (await ghRes.json().catch(() => ({} as { message?: string }))) as { message?: string };
+          if (data.message?.includes("API rate limit")) {
             console.warn("GitHub API rate limit reached");
             // Allow registration - skip validation
           } else {
@@ -83,13 +144,21 @@ export async function POST(req: Request) {
 
       // Check if the repo data indicates it's private
       if (ghRes.ok) {
-        const repoData = await ghRes.json().catch(() => ({}));
-        if ((repoData as any).private === true) {
+        const repoData = await ghRes.json().catch(() => ({} as Record<string, unknown>));
+        if ((repoData as { private?: boolean }).private === true) {
           return Response.json(
             { ok: false, error: "GitHub repository is private. Please make the repository public before registering." },
             { status: 400 }
           );
         }
+
+        const createdAtRaw = (repoData as { created_at?: string }).created_at;
+        if (createdAtRaw) {
+          repoCreatedAt = new Date(createdAtRaw);
+          repoTier = classifyRepoTier(repoCreatedAt);
+        }
+
+        oldestCommitAt = await getOldestCommitDate(owner, repo, branch, githubHeaders);
       }
     } catch {
       // Network or TLS error reaching GitHub — allow registration to proceed.
@@ -108,13 +177,16 @@ export async function POST(req: Request) {
         url: body.data.repoUrl,
         owner,
         repo,
-        branch: body.data.branch ?? "main",
+        branch,
       },
       createdAt: now,
       xp: 0,
       coins: 0,
       frozen: false,
       lastXpAt: null,
+      repoCreatedAt,
+      oldestCommitAt,
+      repoTier,
     };
 
     try {

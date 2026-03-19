@@ -11,6 +11,16 @@ export interface XPCalculationResult {
   completionPercentage: number;
 }
 
+export function applyAdditionalMultiplier(
+  currentXP: number,
+  extraMultiplier: number
+): { adjustedXP: number; totalMultiplier: number } {
+  return {
+    adjustedXP: Math.round(currentXP * extraMultiplier),
+    totalMultiplier: extraMultiplier,
+  };
+}
+
 /**
  * Get hackathon start and end times from environment variables
  */
@@ -95,9 +105,9 @@ export function calculateXPWithTimeBonus(
  */
 export function getTimeBonusDescription(result: XPCalculationResult): string {
   if (result.bonusXP > 0) {
-    return `⚡ Speed bonus: +${result.bonusXP} XP (${Math.round((result.multiplier - 1) * 100)}% bonus for completing at ${result.completionPercentage}% of hackathon time)`;
+    return `Speed bonus: +${result.bonusXP} XP (${Math.round((result.multiplier - 1) * 100)}% bonus for completing at ${result.completionPercentage}% of hackathon time)`;
   } else if (result.bonusXP < 0) {
-    return `⏰ Late submission: ${result.bonusXP} XP (${Math.round((1 - result.multiplier) * 100)}% penalty)`;
+    return `Late submission adjustment: ${result.bonusXP} XP (${Math.round((1 - result.multiplier) * 100)}% penalty)`;
   }
   return "Base XP awarded";
 }

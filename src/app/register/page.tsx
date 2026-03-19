@@ -34,7 +34,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ teamNumber, teamName, repoUrl, branch, members }),
       });
 
-      let data: any = {};
+      let data: { teamId?: string; error?: string } = {};
       try {
         data = await res.json();
       } catch {
@@ -49,6 +49,10 @@ export default function RegisterPage() {
         colors: ['#7c5cff', '#22d3ee', '#ffffff']
       });
 
+      if (!data.teamId) {
+        throw new Error("Registration succeeded but team ID was not returned");
+      }
+
       if (typeof window !== "undefined") {
         localStorage.setItem("lastTeamId", data.teamId);
       }
@@ -56,16 +60,16 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push(`/team/${data.teamId}`);
       }, 1500);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to register");
       setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-6 sm:space-y-8 px-4 sm:px-0">
+    <div className="mx-auto w-full max-w-md space-y-6 px-4 sm:px-0">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
           Register Team
         </h1>
         <p className="text-sm sm:text-base text-muted">
@@ -73,7 +77,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-2xl">
+      <form onSubmit={onSubmit} className="space-y-6 rounded-lg border border-border bg-card p-6 sm:p-8 shadow-sm">
         {error && (
           <div className="rounded-lg bg-red-500/10 p-4 text-sm text-red-500">
             {error}

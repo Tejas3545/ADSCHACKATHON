@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState, useCallback, memo, useMemo } from "react";
+import { useEffect, useRef, useState, memo, useMemo } from "react";
 import useSWR from "swr";
 
 type MilestoneCol = { _id: string; code: string; title: string; xp: number };
@@ -73,7 +73,6 @@ const MilestoneTrack = memo(function MilestoneTrack({
   flash: boolean;
 }) {
   const total = milestones.length;
-  if (total === 0) return null;
   
   const doneCount = useMemo(
     () => milestones.filter(m => completed.includes(m.code)).length,
@@ -83,8 +82,42 @@ const MilestoneTrack = memo(function MilestoneTrack({
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
   const trackId = useMemo(() => `track-${completed.join('-')}`, [completed]);
 
+  if (total === 0) return null;
+
   return (
     <div className="w-full space-y-2">
+      <div className="sm:hidden space-y-2">
+        <div className="flex items-center justify-between text-xs text-muted">
+          <span>{doneCount} / {total} milestones</span>
+          <span className="font-mono">{Math.round(pct)}%</span>
+        </div>
+        <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+          <div
+            className={`milestone-progress-bar-${trackId} h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-violet-600 via-violet-400 to-violet-200`}
+            data-has-glow={pct > 0}
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {milestones.map((m) => {
+            const done = completed.includes(m.code);
+            return (
+              <span
+                key={m.code}
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  done
+                    ? "border-violet-400/40 bg-violet-500/20 text-violet-200"
+                    : "border-white/15 bg-white/5 text-muted"
+                }`}
+                title={`${m.title} (+${m.xp} XP)`}
+              >
+                {done ? "✓" : m.code}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden sm:block space-y-2">
       {/* Progress track */}
       <div className="relative flex items-center gap-0">
         {milestones.map((m, i) => {
@@ -149,6 +182,7 @@ const MilestoneTrack = memo(function MilestoneTrack({
           className={`milestone-progress-bar-${trackId} h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-violet-600 via-violet-400 to-violet-200`}
           data-has-glow={pct > 0}
         />
+      </div>
       </div>
       <style>{`
         .milestone-progress-bar-${trackId} {
@@ -302,7 +336,7 @@ export default function LeaderboardPage() {
             Rankings auto-update with smart caching for smooth performance
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -316,12 +350,12 @@ export default function LeaderboardPage() {
 
       {/* Flash banners */}
       {flashTeam && (
-        <div className="rounded-xl border border-violet-400/40 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-300 animate-pulse">
+        <div className="rounded-xl border border-violet-400/40 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-300 animate-pulse break-words">
           🎉 <strong>{flashTeam}</strong> just earned XP — leaderboard updated!
         </div>
       )}
       {newTeamId && (
-        <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300 animate-pulse">
+        <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300 animate-pulse break-words">
           🚀 A new team just joined the hackathon!
         </div>
       )}
