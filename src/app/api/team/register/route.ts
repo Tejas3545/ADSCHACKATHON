@@ -6,7 +6,7 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
-  teamNumber: z.number().int().min(1).max(90),
+  teamNumber: z.number().int().min(1).max(92),
   teamName: z.string().min(2).max(80),
   members: z.array(z.string().min(1).max(80)).min(1).max(4),
   repoUrl: z.string().url(),

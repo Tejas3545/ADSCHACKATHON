@@ -87,20 +87,20 @@ export default function RegisterPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="teamNumber" className="text-sm font-medium text-foreground">
-              Team Number (1-90)
+              Team Number (1-92)
             </label>
             <input
               id="teamNumber"
               name="teamNumber"
               type="number"
               min={1}
-              max={90}
+              max={92}
               required
               className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               placeholder="e.g. 23"
             />
             <p className="text-xs text-muted">
-              Your Team ID will be saved as TM001 to TM090.
+              Your Team ID will be saved as TM001 to TM092.
             </p>
           </div>
 

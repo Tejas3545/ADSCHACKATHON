@@ -85,13 +85,13 @@ export default function TeamLoginPage() {
             value={teamId}
             onChange={(e) => setTeamId(e.target.value.toUpperCase())}
             required
-            pattern="TM(00[1-9]|0[1-8][0-9]|090)"
-            title="Team ID must be between TM001 and TM090"
+            pattern="TM(00[1-9]|0[1-8][0-9]|09[0-2])"
+            title="Team ID must be between TM001 and TM092"
             maxLength={5}
             className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             placeholder="e.g. TM023"
           />
-          <p className="text-xs text-muted">Use format TM001 to TM090.</p>
+          <p className="text-xs text-muted">Use format TM001 to TM092.</p>
         </div>
 
         <button
