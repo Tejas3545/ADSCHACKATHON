@@ -10,7 +10,7 @@ export async function ensureIndexes() {
 
   try {
     // Teams collection indexes
-    await teams.createIndex({ xp: -1, lastXpAt: 1 }); // For leaderboard sorting
+    await teams.createIndex({ xp: -1, lastCommitAt: -1, lastXpAt: -1 }); // For leaderboard sorting
     await teams.createIndex({ frozen: 1 }); // For filtering frozen teams
     await teams.createIndex({ "repo.owner": 1, "repo.repo": 1 }); // For repo lookups
     

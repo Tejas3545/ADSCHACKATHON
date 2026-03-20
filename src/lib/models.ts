@@ -21,6 +21,8 @@ export const TeamSchema = z.object({
   coins: z.number().int().nonnegative(),
   frozen: z.boolean().default(false),
   lastXpAt: z.date().nullable().default(null),
+  lastCommitAt: z.date().nullable().optional(),
+  commitCount: z.number().int().nonnegative().optional(),
   lastCheckedSha: z.string().nullable().optional(),
   repoCreatedAt: z.date().nullable().optional(),
   oldestCommitAt: z.date().nullable().optional(),

@@ -34,7 +34,7 @@ export async function ensureIndexes() {
 
   await Promise.all([
     // Teams indexes
-    teams.createIndex({ xp: -1, lastXpAt: 1 }), // Primary leaderboard sort
+    teams.createIndex({ xp: -1, lastCommitAt: -1, lastXpAt: -1 }), // Primary leaderboard sort
     teams.createIndex({ name: 1 }, { unique: true }),
     teams.createIndex({ frozen: 1 }), // Filter frozen teams
     teams.createIndex({ "repo.owner": 1, "repo.repo": 1 }), // Repo lookups

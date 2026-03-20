@@ -1,6 +1,6 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
-import { calculateXPWithTimeBonus, getTimeBonusDescription } from "@/lib/xp-calculator";
+import { calculateCappedXpAward, calculateXPWithTimeBonus, getTimeBonusDescription } from "@/lib/xp-calculator";
 import { serverCache, CacheKeys } from "@/lib/cache";
 import { ensureDefaultMilestones } from "@/lib/milestone-seed";
 import { assertLeaderboardRunning } from "@/lib/leaderboard-state";
@@ -155,7 +155,7 @@ export async function POST(
       teamId,
       milestoneId: milestone._id,
       milestoneCode: milestone.code,
-      createdAt: now,
+      createdAt: commitAt,
       validatedAt: now,
       status: status,
       reason: null,
@@ -167,9 +167,11 @@ export async function POST(
 
     if (status === "verified") {
       // Calculate XP with time-based bonus
-      const xpCalculation = calculateXPWithTimeBonus(milestone.xp, now);
+      const xpCalculation = calculateXPWithTimeBonus(milestone.xp, commitAt);
       const repoPolicy = resolveRepoPolicy(repoCreatedAt, commitAt);
-      const xpToAward = Math.round(xpCalculation.totalXP * repoPolicy.finalMultiplier);
+      const requestedXP = Math.round(xpCalculation.totalXP * repoPolicy.finalMultiplier);
+      const cappedAward = calculateCappedXpAward(team.xp, requestedXP);
+      const xpToAward = cappedAward.awardedXP;
       const policyMessage = `Repository policy: ${repoPolicy.reason} (${repoPolicy.finalMultiplier}x)`;
       
       // Award XP and Coins immediately
@@ -177,7 +179,7 @@ export async function POST(
         { _id: teamId },
         { 
           $inc: { xp: xpToAward, coins: milestone.coins },
-          $set: { lastXpAt: now }
+          $set: { lastXpAt: commitAt }
         }
       );
       

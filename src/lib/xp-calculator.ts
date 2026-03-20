@@ -11,6 +11,25 @@ export interface XPCalculationResult {
   completionPercentage: number;
 }
 
+export const MAX_TEAM_XP = 300;
+
+export function calculateCappedXpAward(currentTeamXP: number, requestedAwardXP: number): {
+  awardedXP: number;
+  remainingXP: number;
+  capped: boolean;
+} {
+  const safeCurrent = Math.max(0, Math.trunc(currentTeamXP));
+  const safeRequested = Math.max(0, Math.trunc(requestedAwardXP));
+  const remainingXP = Math.max(0, MAX_TEAM_XP - safeCurrent);
+  const awardedXP = Math.min(safeRequested, remainingXP);
+
+  return {
+    awardedXP,
+    remainingXP,
+    capped: awardedXP < safeRequested,
+  };
+}
+
 export function applyAdditionalMultiplier(
   currentXP: number,
   extraMultiplier: number

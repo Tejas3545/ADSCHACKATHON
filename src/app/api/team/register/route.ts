@@ -184,6 +184,8 @@ export async function POST(req: Request) {
       coins: 0,
       frozen: false,
       lastXpAt: null,
+      lastCommitAt: null,
+      commitCount: 0,
       repoCreatedAt,
       oldestCommitAt,
       repoTier,

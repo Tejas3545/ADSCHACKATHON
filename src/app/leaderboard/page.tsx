@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState, memo, useMemo } from "react";
+import { useEffect, useRef, useState, memo, useMemo, type KeyboardEvent } from "react";
 import useSWR from "swr";
 
 type MilestoneCol = { _id: string; code: string; title: string; xp: number };
@@ -203,29 +203,60 @@ const TeamCard = memo(function TeamCard({
   isFlash,
   isNew,
   milestones,
+  isRankCelebrating,
+  onTopRankTrigger,
 }: {
   row: Row;
   index: number;
   isFlash: boolean;
   isNew: boolean;
   milestones: MilestoneCol[];
+  isRankCelebrating: boolean;
+  onTopRankTrigger: (rank: 1 | 2 | 3) => void;
 }) {
   const medal = RANK_MEDALS[row.rank];
   const lvlGradient = LEVEL_COLORS[row.level] ?? LEVEL_COLORS[1];
+  const isTopRank = row.rank <= 3;
   const doneCount = useMemo(
     () => milestones.filter(m => row.milestones.includes(m.code)).length,
     [milestones, row.milestones]
   );
+
+  const handleTopRankClick = () => {
+    if (!isTopRank) return;
+    onTopRankTrigger(row.rank as 1 | 2 | 3);
+  };
+
+  const handleTopRankKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!isTopRank) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onTopRankTrigger(row.rank as 1 | 2 | 3);
+    }
+  };
 
   return (
     <div
       className={`leaderboard-card relative rounded-2xl border transition-all duration-500 animate-[slideUp_0.4s_ease-out_both]
         ${isFlash ? "border-violet-400/70 shadow-[0_0_24px_rgba(139,92,246,0.3)]" : "border-border"}
         ${isNew ? "border-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.3)]" : ""}
+        ${isTopRank ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60" : ""}
+        ${isRankCelebrating ? "animate-[rankCelebrateBig_1300ms_cubic-bezier(0.16,1,0.3,1)]" : ""}
         bg-card
       `}
       data-index={index}
+      tabIndex={isTopRank ? 0 : undefined}
+      aria-label={isTopRank ? `Celebrate rank ${row.rank}: ${row.teamName}` : undefined}
+      onClick={handleTopRankClick}
+      onKeyDown={handleTopRankKeyDown}
     >
+      {isRankCelebrating && (
+        <>
+          <div className="pointer-events-none absolute inset-0 rounded-2xl border border-violet-300/70 animate-[rankBurstRing_1100ms_ease-out]" />
+          <div className="pointer-events-none absolute inset-0 rounded-2xl border border-violet-400/40 animate-[rankBurstRing_1300ms_120ms_ease-out]" />
+        </>
+      )}
+
       {/* Rank accent stripe */}
       <div
         className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-gradient-to-b ${lvlGradient}`}
@@ -235,9 +266,16 @@ const TeamCard = memo(function TeamCard({
         {/* Rank + team info */}
         <div className="flex items-center gap-4 min-w-0 flex-1">
           {/* Rank badge */}
-          <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-card-strong border border-border text-center">
+          <div
+            className={`flex-shrink-0 flex flex-col items-center justify-center text-center border
+              ${isTopRank
+                ? "w-20 h-20 rounded-3xl bg-violet-500/15 border-violet-300/50 shadow-[0_0_20px_rgba(139,92,246,0.35)]"
+                : "w-14 h-14 rounded-2xl bg-card-strong border-border"
+              }
+            `}
+          >
             {medal
-              ? <span className="text-2xl leading-none">{medal}</span>
+              ? <span className={`${isTopRank ? "text-4xl" : "text-2xl"} leading-none ${isRankCelebrating ? "animate-[medalPopBig_1200ms_cubic-bezier(0.16,1,0.3,1)]" : ""}`}>{medal}</span>
               : <span className="text-xl font-bold text-muted">#{row.rank}</span>
             }
           </div>
@@ -293,7 +331,9 @@ export default function LeaderboardPage() {
 
   const [flashTeam, setFlashTeam] = useState<string | null>(null);
   const [newTeamId, setNewTeamId] = useState<string | null>(null);
+  const [activeRankAnimation, setActiveRankAnimation] = useState<1 | 2 | 3 | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const topRankAnimationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Memoize rows and milestones
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
@@ -320,6 +360,26 @@ export default function LeaderboardPage() {
       es.close();
     };
   }, [mutate]);
+
+  useEffect(() => {
+    return () => {
+      if (topRankAnimationTimeoutRef.current) {
+        clearTimeout(topRankAnimationTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerTopRankAnimation = (rank: 1 | 2 | 3) => {
+    setActiveRankAnimation(rank);
+
+    if (topRankAnimationTimeoutRef.current) {
+      clearTimeout(topRankAnimationTimeoutRef.current);
+    }
+
+    topRankAnimationTimeoutRef.current = setTimeout(() => {
+      setActiveRankAnimation(null);
+    }, 1100);
+  };
 
   const loading = !data && !error;
   const lastUpdated = data?.generatedAt ? new Date(data.generatedAt) : null;
@@ -387,6 +447,8 @@ export default function LeaderboardPage() {
               isFlash={flashTeam === row.teamName}
               isNew={newTeamId === row.teamId}
               milestones={milestones}
+              isRankCelebrating={activeRankAnimation === row.rank && row.rank <= 3}
+              onTopRankTrigger={triggerTopRankAnimation}
             />
           ))}
         </div>
@@ -402,6 +464,27 @@ export default function LeaderboardPage() {
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes rankCelebrateBig {
+          0% { transform: translateY(0) scale(1); box-shadow: 0 0 0 rgba(139,92,246,0); }
+          24% { transform: translateY(-10px) scale(1.025); box-shadow: 0 0 44px rgba(139,92,246,0.55); }
+          48% { transform: translateY(2px) scale(0.997); box-shadow: 0 0 18px rgba(139,92,246,0.35); }
+          74% { transform: translateY(-6px) scale(1.015); box-shadow: 0 0 30px rgba(139,92,246,0.45); }
+          100% { transform: translateY(0) scale(1); box-shadow: 0 0 0 rgba(139,92,246,0); }
+        }
+
+        @keyframes medalPopBig {
+          0% { transform: scale(1) rotate(0deg); }
+          28% { transform: scale(1.45) rotate(-14deg); }
+          56% { transform: scale(1.12) rotate(10deg); }
+          78% { transform: scale(1.24) rotate(-6deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+
+        @keyframes rankBurstRing {
+          0% { opacity: 0.9; transform: scale(1); }
+          100% { opacity: 0; transform: scale(1.08); }
         }
         
         .leaderboard-card[data-index="0"] { animation-delay: 0s; }

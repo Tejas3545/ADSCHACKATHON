@@ -7,24 +7,21 @@ type DashboardData = {
   teams: Team[];
   milestones: Milestone[];
   submissions: MilestoneSubmission[];
+  recentCommits?: Array<{
+    teamId: string;
+    teamName: string;
+    sha: string;
+    message: string;
+    url: string | null;
+    date: string;
+    author: string;
+  }>;
   leaderboardState?: {
     isRunning: boolean;
     startedAt: string | null;
     endedAt: string | null;
   };
 };
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
-      <path d="M4 7h16" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
-  );
-}
 
 function PlayIcon() {
   return (
@@ -129,39 +126,6 @@ export default function AdminPage() {
     }
   }
 
-  async function resetDatabase() {
-    const confirmed = confirm(
-      "WARNING: This will delete ALL data (teams, submissions, and milestones). This action cannot be undone. Are you sure?"
-    );
-    
-    if (!confirmed) return;
-
-    const doubleConfirm = prompt(
-      'Type "RESET" to confirm database reset:'
-    );
-
-    if (doubleConfirm !== "RESET") {
-      alert("Reset cancelled.");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/internal/reset-database", {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Failed to reset database");
-      const result = await res.json();
-      alert(`Database reset complete!\n\nDeleted:\n- Teams: ${result.deleted.teams}\n- Submissions: ${result.deleted.submissions}\n- Milestones: ${result.deleted.milestones}\n\nYou can now start fresh!`);
-      fetchDashboard(true);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        alert(err.message);
-      } else {
-        alert("An unknown error occurred");
-      }
-    }
-  }
-
   async function handleLogout() {
     try {
       await fetch("/api/admin/logout", { method: "POST" });
@@ -235,13 +199,6 @@ export default function AdminPage() {
           >
             Logout
           </button>
-          <button 
-            onClick={resetDatabase} 
-            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white hover:bg-red-600"
-          >
-            <TrashIcon />
-            Reset Database
-          </button>
         </div>
       </div>
 
@@ -270,6 +227,44 @@ export default function AdminPage() {
         </div>
       </div>
 
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="border-b border-border px-4 py-3 sm:px-6">
+          <h2 className="text-sm font-semibold text-foreground">Recent GitHub Commits</h2>
+          <p className="text-xs text-muted mt-1">Live commit feed across teams (during leaderboard run window).</p>
+        </div>
+        <div className="max-h-72 overflow-y-auto">
+          {(data?.recentCommits?.length ?? 0) > 0 ? (
+            <ul className="divide-y divide-border">
+              {data?.recentCommits?.slice(0, 50).map((commit) => (
+                <li key={`${commit.teamId}-${commit.sha}-${commit.date}`} className="px-4 py-3 sm:px-6">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{commit.teamName} · {commit.message}</p>
+                      <p className="text-xs text-muted mt-0.5">{commit.sha.slice(0, 7)} · {commit.author}</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted">
+                      <span>{new Date(commit.date).toLocaleString()}</span>
+                      {commit.url && (
+                        <a
+                          href={commit.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-accent hover:text-accent/80"
+                        >
+                          View
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="px-4 py-8 text-center text-sm text-muted sm:px-6">No commits found yet for the active leaderboard window.</div>
+          )}
+        </div>
+      </div>
+
       {activeTab === "teams" && (
         <>
           {/* Desktop Table View */}
@@ -294,6 +289,10 @@ export default function AdminPage() {
                         <span className="text-accent-2 font-bold">{team.xp} XP</span>
                         <span className="text-muted mx-2">•</span>
                         <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
+                        <span className="text-muted mx-2">•</span>
+                        <span className="text-violet-300 font-semibold">{team.commitCount ?? 0} Commits</span>
+                        <span className="text-muted mx-2">•</span>
+                        <span className="text-muted text-xs">Last: {team.lastCommitAt ? new Date(team.lastCommitAt).toLocaleTimeString() : "-"}</span>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         {team.frozen ? (
@@ -353,7 +352,10 @@ export default function AdminPage() {
                   <span className="text-accent-2 font-bold">{team.xp} XP</span>
                   <span className="text-muted">•</span>
                   <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
+                  <span className="text-muted">•</span>
+                  <span className="text-violet-300 font-semibold">{team.commitCount ?? 0} Commits</span>
                 </div>
+                <div className="text-xs text-muted">Last Commit: {team.lastCommitAt ? new Date(team.lastCommitAt).toLocaleString() : "-"}</div>
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={() => handleAction(team.frozen ? "unfreezeTeam" : "freezeTeam", { teamId: team._id })}

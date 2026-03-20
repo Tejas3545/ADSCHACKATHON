@@ -8,7 +8,7 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
 import { quickValidateCommit } from "@/lib/commit-validator";
-import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
+import { calculateCappedXpAward, calculateXPWithTimeBonus } from "@/lib/xp-calculator";
 import { serverCache, CacheKeys } from "@/lib/cache";
 import { ensureDefaultMilestones } from "@/lib/milestone-seed";
 import { assertLeaderboardRunning } from "@/lib/leaderboard-state";
@@ -89,7 +89,13 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
     console.log(`[check-team] ${team.name} commit ${headSha.substring(0, 7)} rejected: ${validation.reason} (score: ${validation.qualityScore})`);
     // Update lastCheckedSha to avoid re-checking this spam commit
     await getCollections().then(({ teams: teamsCol }) => 
-      teamsCol.updateOne({ _id: team._id }, { $set: { lastCheckedSha: headSha } })
+      teamsCol.updateOne(
+        { _id: team._id },
+        {
+          $set: { lastCheckedSha: headSha, lastCommitAt: commitAt },
+          $inc: { commitCount: 1 },
+        }
+      )
     );
     return { 
       skipped: true, 
@@ -106,6 +112,7 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
     .find({ teamId: team._id, status: "verified" })
     .toArray();
   const verifiedCodes = new Set(verifiedSubs.map((s) => s.milestoneCode));
+  let currentTeamXP = team.xp;
 
   const results: Record<string, "verified" | "skipped" | "failed"> = {};
   const now = new Date();
@@ -176,9 +183,11 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
       }
 
       // ── All checks passed → award XP with time bonus ─────────────────────
-      const xpResult = calculateXPWithTimeBonus(milestone.xp, now);
+      const xpResult = calculateXPWithTimeBonus(milestone.xp, commitAt);
       const repoPolicy = resolveRepoPolicy(repoCreatedAt, commitAt);
-      const xpToAward = Math.round(xpResult.totalXP * repoPolicy.finalMultiplier);
+      const requestedXP = Math.round(xpResult.totalXP * repoPolicy.finalMultiplier);
+      const cappedAward = calculateCappedXpAward(currentTeamXP, requestedXP);
+      const xpToAward = cappedAward.awardedXP;
       const subId = nanoid(10);
       
       await submissions.insertOne({
@@ -186,7 +195,7 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         teamId: team._id,
         milestoneId: milestone._id,
         milestoneCode: milestone.code,
-        createdAt: now,
+        createdAt: commitAt,
         validatedAt: now,
         status: "verified",
         reason: null,
@@ -208,9 +217,11 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         { _id: team._id },
         {
           $inc: { xp: xpToAward, coins: milestone.coins },
-          $set: { lastXpAt: now },
+          $set: { lastXpAt: commitAt },
         }
       );
+
+      currentTeamXP += xpToAward;
 
       console.log(`[check-team] ${team.name} earned ${xpToAward} XP for ${milestone.code} (time: ${xpResult.multiplier}x, repo: ${repoPolicy.finalMultiplier}x)`);
 
@@ -224,7 +235,10 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
   // ── Step 6: Save the latest SHA so we don't re-process this commit ───────
   await teams.updateOne(
     { _id: team._id },
-    { $set: { lastCheckedSha: headSha } }
+    {
+      $set: { lastCheckedSha: headSha, lastCommitAt: commitAt },
+      $inc: { commitCount: 1 },
+    }
   );
 
   // ── Step 7: Broadcast real-time update if anything was awarded ───────────

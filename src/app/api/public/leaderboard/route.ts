@@ -25,9 +25,9 @@ export async function GET() {
     teams
       .find(
         { frozen: { $ne: true } },
-        { projection: { _id: 1, name: 1, xp: 1, coins: 1, lastXpAt: 1 } }
+        { projection: { _id: 1, name: 1, xp: 1, coins: 1, lastXpAt: 1, lastCommitAt: 1 } }
       )
-      .sort({ xp: -1, lastXpAt: 1 })
+      .sort({ xp: -1, lastCommitAt: -1, lastXpAt: -1, _id: 1 })
       .limit(200)
       .toArray(),
     milestones

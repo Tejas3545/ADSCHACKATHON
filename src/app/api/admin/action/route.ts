@@ -1,7 +1,7 @@
 import { getCollections } from "@/lib/collections";
 import { assertAdmin } from "@/lib/admin";
 import { broadcast } from "@/lib/broadcaster";
-import { calculateXPWithTimeBonus } from "@/lib/xp-calculator";
+import { MAX_TEAM_XP, calculateCappedXpAward, calculateXPWithTimeBonus } from "@/lib/xp-calculator";
 import { setLeaderboardRunning } from "@/lib/leaderboard-state";
 import { resolveRepoPolicy } from "@/lib/repo-xp-policy";
 
@@ -29,9 +29,21 @@ export async function POST(req: Request) {
     } else if (action === "unfreezeTeam") {
       await teams.updateOne({ _id: payload.teamId }, { $set: { frozen: false } });
     } else if (action === "adjustXp") {
+      const team = await teams.findOne({ _id: payload.teamId });
+      if (!team) {
+        return Response.json({ ok: false, error: "Team not found" }, { status: 404 });
+      }
+
+      const amount = Number(payload.amount || 0);
+      const currentXP = Math.max(0, team.xp);
+      const nextXP = amount >= 0
+        ? Math.min(MAX_TEAM_XP, currentXP + amount)
+        : Math.max(0, currentXP + amount);
+      const xpDelta = nextXP - currentXP;
+
       await teams.updateOne(
         { _id: payload.teamId },
-        { $inc: { xp: payload.amount, coins: payload.coins || 0 } }
+        { $inc: { xp: xpDelta, coins: Number(payload.coins || 0) } }
       );
     } else if (action === "updateSubmission") {
       await submissions.updateOne(
@@ -49,15 +61,35 @@ export async function POST(req: Request) {
         // Calculate XP with time-based bonus
         const xpCalculation = calculateXPWithTimeBonus(payload.xp, completionTime);
         const repoPolicy = resolveRepoPolicy(repoCreatedAt, completionTime);
-        const xpToAward = Math.round(xpCalculation.totalXP * repoPolicy.finalMultiplier);
+        const requestedXP = Math.round(xpCalculation.totalXP * repoPolicy.finalMultiplier);
+        const cappedAward = calculateCappedXpAward(team?.xp ?? 0, requestedXP);
+        const xpToAward = cappedAward.awardedXP;
         
         await teams.updateOne(
           { _id: payload.teamId },
           {
             $inc: { xp: xpToAward, coins: payload.coins || 0 },
-            $set: { lastXpAt: new Date() },
+            $set: { lastXpAt: completionTime },
           }
         );
+
+        await submissions.updateOne(
+          { _id: payload.submissionId },
+          {
+            $set: {
+              xpAwarded: xpToAward,
+              "xpBreakdown.baseXP": payload.xp,
+              "xpBreakdown.multiplier": xpCalculation.multiplier,
+              "xpBreakdown.bonusXP": xpCalculation.bonusXP,
+              "xpBreakdown.completionPercentage": xpCalculation.completionPercentage,
+              "xpBreakdown.timeMultiplier": xpCalculation.multiplier,
+              "xpBreakdown.repoMultiplier": repoPolicy.finalMultiplier,
+              "xpBreakdown.repoTier": repoPolicy.tier,
+              "xpBreakdown.policyReason": repoPolicy.reason,
+            },
+          }
+        );
+
         broadcast("leaderboard-update", { teamId: payload.teamId, teamName: "" });
       }
     } else if (action === "startLeaderboard") {
