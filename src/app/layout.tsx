@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -38,10 +39,13 @@ export default function RootLayout({
             <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-3 sm:flex-row sm:gap-4 sm:py-0">
               <Link href="/" className="flex items-center gap-3 min-w-0">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-border">
-                  <img 
-                    src="/logo.png" 
-                    alt="ADSC Logo" 
+                  <Image
+                    src="/logo.png"
+                    alt="ADSC Logo"
+                    width={48}
+                    height={48}
                     className="h-full w-full object-contain scale-[2.5]"
+                    priority
                   />
                 </div>
                 <div className="leading-tight text-center sm:text-left min-w-0">

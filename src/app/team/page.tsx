@@ -112,7 +112,7 @@ export default function TeamLoginPage() {
         )}
 
         <div className="text-center text-sm text-muted">
-          Don't have a team yet?{" "}
+          Don&apos;t have a team yet?{" "}
           <a href="/register" className="font-medium text-accent hover:underline">
             Register here
           </a>

@@ -222,7 +222,7 @@ export default function TeamDashboardPage() {
         </div>
       )}
 
-      <section className="rounded-lg border border-border bg-card shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
         <div className="border-b border-border px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2 text-foreground">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
@@ -232,25 +232,25 @@ export default function TeamDashboardPage() {
             <h2 className="text-base font-semibold">Rule Book</h2>
           </div>
         </div>
-        <div className="grid gap-5 px-4 py-4 sm:grid-cols-2 sm:px-5">
-          <div>
+        <div className="grid gap-4 px-4 py-4 sm:grid-cols-2 sm:px-5">
+          <div className="rounded-md border border-border bg-background/40 p-4">
             <h3 className="text-sm font-semibold text-foreground">Milestone Criteria</h3>
-            <ul className="mt-2 space-y-1 text-sm text-muted">
-              <li>- MS1: Create repository and add README with meaningful content.</li>
-              <li>- MS2: Add frontend work under frontend folder and commit keyword match.</li>
-              <li>- MS3: Add backend work under backend folder and commit keyword match.</li>
-              <li>- MS2 and MS3 can be completed in any order.</li>
-              <li>- Weak commits like &apos;.&apos; are automatically rejected.</li>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted marker:text-muted/70">
+              <li><span className="font-medium text-foreground">MS1:</span> Create repository and add README with meaningful content.</li>
+              <li><span className="font-medium text-foreground">MS2:</span> Add frontend work under frontend folder and commit keyword match.</li>
+              <li><span className="font-medium text-foreground">MS3:</span> Add backend work under backend folder and commit keyword match.</li>
+              <li><span className="font-medium text-foreground">Order:</span> MS2 and MS3 can be completed in any order.</li>
+              <li><span className="font-medium text-foreground">Quality:</span> Weak commits like &apos;.&apos; are automatically rejected.</li>
             </ul>
           </div>
-          <div>
+          <div className="rounded-md border border-border bg-background/40 p-4">
             <h3 className="text-sm font-semibold text-foreground">XP Conditions</h3>
-            <ul className="mt-2 space-y-1 text-sm text-muted">
-              <li>- Fresh repo in event window (20-03-2026, 07:30 to 14:30): 1.0x repo multiplier.</li>
-              <li>- Mid-age repo: older commits 0.85x, new event-window commits 1.0x.</li>
-              <li>- Old repo: older commits 0.75x, continued event-window commits 0.9x.</li>
-              <li>- Final XP = base XP × time bonus × repo multiplier.</li>
-              <li>- Submissions are accepted only while leaderboard is running.</li>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted marker:text-muted/70">
+              <li><span className="font-medium text-foreground">Fresh repo:</span> In event window (20-03-2026, 07:30 to 14:30) gets 1.0x repo multiplier.</li>
+              <li><span className="font-medium text-foreground">Mid-age repo:</span> Older commits 0.85x, new event-window commits 1.0x.</li>
+              <li><span className="font-medium text-foreground">Old repo:</span> Older commits 0.75x, continued event-window commits 0.9x.</li>
+              <li><span className="font-medium text-foreground">Formula:</span> Final XP = base XP × time bonus × repo multiplier.</li>
+              <li><span className="font-medium text-foreground">Availability:</span> Submissions are accepted only while leaderboard is running.</li>
             </ul>
           </div>
         </div>
