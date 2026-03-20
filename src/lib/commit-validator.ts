@@ -173,12 +173,18 @@ export function validateCommit(
   
   // Check if only low-value files were changed
   if (lowValueOnlyChange && filesChanged.length === 1) {
-    qualityScore -= 30;
-    return {
-      isValid: false,
-      reason: "Only documentation files changed (e.g., README). Push meaningful code changes.",
-      qualityScore: Math.max(0, qualityScore),
-    };
+    const onlyFile = filesChanged[0];
+    const isReadmeOnly = /readme\.md$/i.test(onlyFile.filename);
+    if (isReadmeOnly && totalMeaningfulLines >= minMeaningfulLines) {
+      qualityScore += 20;
+    } else {
+      qualityScore -= 30;
+      return {
+        isValid: false,
+        reason: "Only documentation files changed (e.g., README). Push meaningful code changes.",
+        qualityScore: Math.max(0, qualityScore),
+      };
+    }
   }
   
   // Check minimum files requirement
@@ -253,11 +259,15 @@ export function quickValidateCommit(
   const lowValueOnly = filesChanged.every(f => isLowValueFile(f.filename));
   
   if (lowValueOnly && filesChanged.length === 1) {
-    return {
-      isValid: false,
-      reason: "Only documentation files changed. Push meaningful code changes.",
-      qualityScore: 10,
-    };
+    const onlyFile = filesChanged[0];
+    const isReadmeOnly = /readme\.md$/i.test(onlyFile.filename);
+    if (!(isReadmeOnly && totalAdditions >= minMeaningfulLines)) {
+      return {
+        isValid: false,
+        reason: "Only documentation files changed. Push meaningful code changes.",
+        qualityScore: 10,
+      };
+    }
   }
   
   if (totalAdditions < minMeaningfulLines) {
