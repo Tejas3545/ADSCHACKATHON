@@ -28,7 +28,7 @@ export const DEFAULT_MILESTONES: Milestone[] = [
   {
     _id: "MS2",
     code: "MS2",
-    title: "Create frontend folder and implement requirements",
+    title: "Create frontend/client folder and implement requirements",
     xp: 120,
     coins: 20,
     rules: {
@@ -37,7 +37,7 @@ export const DEFAULT_MILESTONES: Milestone[] = [
         minFilesChanged: 2,
         minLinesAdded: 30,
       },
-      requiredPathPrefixes: ["frontend"],
+      requiredPathPrefixes: ["frontend|client"],
       commitMessageKeywords: ["frontend", "ui", "client", "react", "next"],
       manualReview: false,
     },
@@ -47,7 +47,7 @@ export const DEFAULT_MILESTONES: Milestone[] = [
   {
     _id: "MS3",
     code: "MS3",
-    title: "Create backend folder and implement requirements",
+    title: "Create backend/server folder and implement requirements",
     xp: 120,
     coins: 30,
     rules: {
@@ -56,7 +56,7 @@ export const DEFAULT_MILESTONES: Milestone[] = [
         minFilesChanged: 2,
         minLinesAdded: 30,
       },
-      requiredPathPrefixes: ["backend"],
+      requiredPathPrefixes: ["backend|server"],
       commitMessageKeywords: ["backend", "api", "server", "database", "auth"],
       manualReview: false,
     },

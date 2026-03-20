@@ -12,15 +12,23 @@ export function validateRequiredPathPrefixes(
   }
 
   const lowerFiles = filesChanged.map((f) => f.filename.toLowerCase());
-  for (const prefix of requiredPathPrefixes) {
-    const normalized = prefix.trim().toLowerCase();
-    if (!normalized) continue;
+  for (const prefixRule of requiredPathPrefixes) {
+    const options = prefixRule
+      .split("|")
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean);
 
-    const hasPrefix = lowerFiles.some((f) => f.startsWith(`${normalized}/`) || f === normalized);
-    if (!hasPrefix) {
+    if (options.length === 0) continue;
+
+    const hasAnyAllowedPrefix = options.some((prefix) =>
+      lowerFiles.some((filename) => filename.startsWith(`${prefix}/`) || filename === prefix)
+    );
+
+    if (!hasAnyAllowedPrefix) {
+      const display = options.map((option) => `'${option}/'`).join(" or ");
       return {
         ok: false,
-        reason: `Changes must include files under '${prefix}/'`,
+        reason: `Changes must include files under ${display}`,
       };
     }
   }

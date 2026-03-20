@@ -237,9 +237,10 @@ export default function TeamDashboardPage() {
             <h3 className="text-sm font-semibold text-foreground">Milestone Criteria</h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted marker:text-muted/70">
               <li><span className="font-medium text-foreground">MS1:</span> Create repository and add README with meaningful content.</li>
-              <li><span className="font-medium text-foreground">MS2:</span> Add frontend work under frontend folder and commit keyword match.</li>
-              <li><span className="font-medium text-foreground">MS3:</span> Add backend work under backend folder and commit keyword match.</li>
+              <li><span className="font-medium text-foreground">MS2:</span> Add frontend work under <span className="font-mono text-foreground">frontend/</span> or <span className="font-mono text-foreground">client/</span> and include milestone keyword in commit message.</li>
+              <li><span className="font-medium text-foreground">MS3:</span> Add backend work under <span className="font-mono text-foreground">backend/</span> or <span className="font-mono text-foreground">server/</span> and include milestone keyword in commit message.</li>
               <li><span className="font-medium text-foreground">Order:</span> MS2 and MS3 can be completed in any order.</li>
+              <li><span className="font-medium text-foreground">Commit rule:</span> If the commit message does not contain a valid milestone keyword, validation is rejected.</li>
               <li><span className="font-medium text-foreground">Quality:</span> Weak commits like &apos;.&apos; are automatically rejected.</li>
             </ul>
           </div>
