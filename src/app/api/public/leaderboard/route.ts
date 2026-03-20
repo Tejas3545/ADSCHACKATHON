@@ -2,6 +2,7 @@ import { getCollections } from "@/lib/collections";
 import { levelFromXp } from "@/lib/models";
 import { serverCache, CacheKeys, CacheTTL } from "@/lib/cache";
 import { ensureDefaultMilestones } from "@/lib/milestone-seed";
+import { calculateCommitXpPenalty } from "@/lib/commit-warning";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,8 @@ export async function GET() {
     teams
       .find(
         { frozen: { $ne: true } },
-        { projection: { _id: 1, name: 1, xp: 1, coins: 1, lastXpAt: 1, lastCommitAt: 1 } }
+        { projection: { _id: 1, name: 1, xp: 1, coins: 1, lastXpAt: 1, lastCommitAt: 1, commitCount: 1 } }
       )
-      .sort({ xp: -1, lastCommitAt: -1, lastXpAt: -1, _id: 1 })
       .limit(200)
       .toArray(),
     milestones
@@ -50,12 +50,41 @@ export async function GET() {
     if (!byTeam[s.teamId].includes(s.milestoneCode)) byTeam[s.teamId].push(s.milestoneCode);
   }
 
-  const rows = teamDocs.map((t, idx) => ({
+  const scoredTeams = teamDocs
+    .map((team) => {
+      const rawXP = team.xp;
+      const commitCount = team.commitCount ?? 0;
+      const penalty = calculateCommitXpPenalty(commitCount);
+      const effectiveXP = penalty.effectiveXP(rawXP);
+
+      return {
+        ...team,
+        rawXP,
+        xpPenalty: penalty.penaltyXP,
+        effectiveXP,
+        commitCount,
+      };
+    })
+    .sort((a, b) => {
+      if (b.effectiveXP !== a.effectiveXP) return b.effectiveXP - a.effectiveXP;
+      const bCommit = b.lastCommitAt ? +new Date(b.lastCommitAt) : 0;
+      const aCommit = a.lastCommitAt ? +new Date(a.lastCommitAt) : 0;
+      if (bCommit !== aCommit) return bCommit - aCommit;
+      const bXpAt = b.lastXpAt ? +new Date(b.lastXpAt) : 0;
+      const aXpAt = a.lastXpAt ? +new Date(a.lastXpAt) : 0;
+      if (bXpAt !== aXpAt) return bXpAt - aXpAt;
+      return a._id.localeCompare(b._id);
+    });
+
+  const rows = scoredTeams.map((t, idx) => ({
     rank: idx + 1,
     teamId: t._id,
     teamName: t.name,
-    xp: t.xp,
-    level: levelFromXp(t.xp),
+    xp: t.effectiveXP,
+    rawXp: t.rawXP,
+    xpPenalty: t.xpPenalty,
+    commitCount: t.commitCount,
+    level: levelFromXp(t.effectiveXP),
     milestones: (byTeam[t._id] ?? []).sort(),
   }));
 

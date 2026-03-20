@@ -2,6 +2,7 @@ import { getCollections } from "@/lib/collections";
 import { assertAdmin } from "@/lib/admin";
 import { getLeaderboardState } from "@/lib/leaderboard-state";
 import { buildGitHubHeaders, fetchGitHubWithTokenFallback } from "@/lib/github-utils";
+import { buildCommitWarningMessage, calculateCommitXpPenalty, getCommitWarningThreshold, shouldWarnForCommitCount } from "@/lib/commit-warning";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,7 @@ export async function GET(req: Request) {
     ]);
 
     const headers = buildGitHubHeaders();
+    const warningThreshold = getCommitWarningThreshold();
     const sinceIso = leaderboardState.startedAt ? leaderboardState.startedAt.toISOString() : null;
 
     const commitSnapshots = await Promise.all(
@@ -165,12 +167,41 @@ export async function GET(req: Request) {
       .sort((a, b) => +new Date(b.date) - +new Date(a.date))
       .slice(0, 100);
 
-    const allTeams = allTeamsRaw.map((team) => ({
-      ...team,
-      commitCount: commitByTeam.get(team._id)?.commitCount ?? team.commitCount ?? 0,
-      lastCommitAt: commitByTeam.get(team._id)?.lastCommitAt ?? (team.lastCommitAt ? team.lastCommitAt.toISOString() : null),
-      lastCommitSha: commitByTeam.get(team._id)?.lastCommitSha ?? null,
-    }));
+    const allTeams = allTeamsRaw
+      .map((team) => {
+        const commitCount = commitByTeam.get(team._id)?.commitCount ?? team.commitCount ?? 0;
+        const penalty = calculateCommitXpPenalty(commitCount);
+        const effectiveXP = penalty.effectiveXP(team.xp);
+        return {
+          ...team,
+          xp: effectiveXP,
+          rawXp: team.xp,
+          xpPenalty: penalty.penaltyXP,
+          commitCount,
+          lastCommitAt: commitByTeam.get(team._id)?.lastCommitAt ?? (team.lastCommitAt ? team.lastCommitAt.toISOString() : null),
+          lastCommitSha: commitByTeam.get(team._id)?.lastCommitSha ?? null,
+        };
+      })
+      .sort((a, b) => {
+        if (b.xp !== a.xp) return b.xp - a.xp;
+        const bCommit = b.lastCommitAt ? +new Date(b.lastCommitAt) : 0;
+        const aCommit = a.lastCommitAt ? +new Date(a.lastCommitAt) : 0;
+        if (bCommit !== aCommit) return bCommit - aCommit;
+        const bXpAt = b.lastXpAt ? +new Date(b.lastXpAt) : 0;
+        const aXpAt = a.lastXpAt ? +new Date(a.lastXpAt) : 0;
+        if (bXpAt !== aXpAt) return bXpAt - aXpAt;
+        return a._id.localeCompare(b._id);
+      });
+
+    const warningTeams = allTeams
+      .filter((team) => shouldWarnForCommitCount(team.commitCount ?? 0, warningThreshold))
+      .map((team) => ({
+        teamId: team._id,
+        teamName: team.name,
+        commitCount: team.commitCount ?? 0,
+        threshold: warningThreshold,
+        message: buildCommitWarningMessage(team.commitCount ?? 0, warningThreshold),
+      }));
 
     return Response.json({
       ok: true,
@@ -179,6 +210,8 @@ export async function GET(req: Request) {
       submissions: allSubmissions,
       leaderboardState,
       recentCommits,
+      commitWarningThreshold: warningThreshold,
+      warningTeams,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";

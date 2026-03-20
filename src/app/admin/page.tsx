@@ -3,10 +3,25 @@
 import { useEffect, useState } from "react";
 import type { Team, Milestone, MilestoneSubmission } from "@/lib/models";
 
+type AdminTeam = Team & {
+  rawXp?: number;
+  xpPenalty?: number;
+  commitCount?: number;
+  lastCommitAt?: string | null;
+};
+
 type DashboardData = {
-  teams: Team[];
+  teams: AdminTeam[];
   milestones: Milestone[];
   submissions: MilestoneSubmission[];
+  commitWarningThreshold?: number;
+  warningTeams?: Array<{
+    teamId: string;
+    teamName: string;
+    commitCount: number;
+    threshold: number;
+    message: string;
+  }>;
   recentCommits?: Array<{
     teamId: string;
     teamName: string;
@@ -227,6 +242,19 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {(data?.warningTeams?.length ?? 0) > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 sm:px-6">
+          <h2 className="text-sm font-semibold text-amber-300">
+            Commit Limit Warnings (threshold: {data?.commitWarningThreshold ?? 20})
+          </h2>
+          <ul className="mt-2 space-y-1 text-sm text-amber-200">
+            {data?.warningTeams?.map((team) => (
+              <li key={team.teamId}>{team.teamName} ({team.teamId}) - {team.commitCount} commits</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-card shadow-sm">
         <div className="border-b border-border px-4 py-3 sm:px-6">
           <h2 className="text-sm font-semibold text-foreground">Recent GitHub Commits</h2>
@@ -281,12 +309,18 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {data?.teams.map((team: Team) => (
+                  {data?.teams.map((team: AdminTeam) => (
                     <tr key={team._id} className="transition-colors hover:bg-card-strong/50">
                       <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">{team.name}</td>
                       <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-muted">{team._id}</td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <span className="text-accent-2 font-bold">{team.xp} XP</span>
+                        {(team.xpPenalty ?? 0) > 0 && (
+                          <>
+                            <span className="text-muted mx-2">•</span>
+                            <span className="text-amber-300 font-semibold">-{team.xpPenalty} penalty</span>
+                          </>
+                        )}
                         <span className="text-muted mx-2">•</span>
                         <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
                         <span className="text-muted mx-2">•</span>
@@ -335,7 +369,7 @@ export default function AdminPage() {
           </div>
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
-            {data?.teams.map((team: Team) => (
+            {data?.teams.map((team: AdminTeam) => (
               <div key={team._id} className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
@@ -350,6 +384,12 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-accent-2 font-bold">{team.xp} XP</span>
+                  {(team.xpPenalty ?? 0) > 0 && (
+                    <>
+                      <span className="text-muted">•</span>
+                      <span className="text-amber-300 font-semibold">-{team.xpPenalty} penalty</span>
+                    </>
+                  )}
                   <span className="text-muted">•</span>
                   <span className="text-yellow-500 font-bold">{team.coins} Coins</span>
                   <span className="text-muted">•</span>

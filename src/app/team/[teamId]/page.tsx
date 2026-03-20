@@ -22,9 +22,16 @@ type TeamDashboardData = {
     teamId: string;
     name: string;
     xp: number;
+    rawXp?: number;
+    xpPenalty?: number;
     coins: number;
     level: number;
     frozen: boolean;
+    commitCount?: number;
+    commitWarning?: {
+      threshold: number;
+      message: string;
+    } | null;
   };
   milestones: MilestoneRow[];
   submissions: SubmissionRecord[];
@@ -41,6 +48,7 @@ export default function TeamDashboardPage() {
   const [autoRefreshed, setAutoRefreshed] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [teamWarning, setTeamWarning] = useState<string>("");
   const esRef = useRef<EventSource | null>(null);
   const prevXpRef = useRef<number | null>(null);
 
@@ -62,6 +70,13 @@ export default function TeamDashboardPage() {
         setAutoRefreshed(true);
         fetchData();
         setTimeout(() => setAutoRefreshed(false), 3000);
+      }
+    });
+
+    es.addEventListener("team-warning", (e: MessageEvent) => {
+      const payload = JSON.parse(e.data) as { teamId?: string; message?: string };
+      if (payload.teamId === teamId && payload.message) {
+        setTeamWarning(payload.message);
       }
     });
 
@@ -87,6 +102,7 @@ export default function TeamDashboardPage() {
         });
       }
       prevXpRef.current = json.team.xp;
+      setTeamWarning(json.team.commitWarning?.message ?? "");
       setData(json);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load team data");
@@ -222,6 +238,12 @@ export default function TeamDashboardPage() {
         </div>
       )}
 
+      {teamWarning && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-300">
+          {teamWarning}
+        </div>
+      )}
+
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
         <div className="border-b border-border px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2 text-foreground">
@@ -257,7 +279,7 @@ export default function TeamDashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="text-sm font-medium text-muted">Level</div>
           <div className="mt-2 text-2xl font-bold text-foreground">{team.level}</div>
@@ -265,10 +287,17 @@ export default function TeamDashboardPage() {
         <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="text-sm font-medium text-muted">Total XP</div>
           <div className="mt-2 text-2xl font-bold text-accent-2">{team.xp}</div>
+          {(team.xpPenalty ?? 0) > 0 && (
+            <div className="mt-1 text-xs text-amber-300">Raw: {team.rawXp ?? team.xp} · Penalty: -{team.xpPenalty}</div>
+          )}
         </div>
         <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <div className="text-sm font-medium text-muted">Coins</div>
           <div className="mt-2 text-2xl font-bold text-yellow-500">{team.coins}</div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+          <div className="text-sm font-medium text-muted">Commit Count</div>
+          <div className="mt-2 text-2xl font-bold text-violet-300">{team.commitCount ?? 0}</div>
         </div>
       </div>
 

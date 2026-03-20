@@ -8,6 +8,7 @@
 import { getCollections } from "@/lib/collections";
 import { broadcast } from "@/lib/broadcaster";
 import { quickValidateCommit } from "@/lib/commit-validator";
+import { buildCommitWarningMessage, getCommitWarningThreshold, shouldWarnForCommitCount } from "@/lib/commit-warning";
 import { calculateCappedXpAward, calculateXPWithTimeBonus } from "@/lib/xp-calculator";
 import { serverCache, CacheKeys } from "@/lib/cache";
 import { ensureDefaultMilestones } from "@/lib/milestone-seed";
@@ -23,6 +24,19 @@ type CheckResult =
   | { skipped: false; headSha: string; results: Record<string, "verified" | "skipped" | "failed"> };
 
 export async function checkTeam(team: Team): Promise<CheckResult> {
+  const warningThreshold = getCommitWarningThreshold();
+
+  const emitCommitWarningIfNeeded = (commitCount: number) => {
+    if (!shouldWarnForCommitCount(commitCount, warningThreshold)) return;
+    broadcast("team-warning", {
+      teamId: team._id,
+      teamName: team.name,
+      commitCount,
+      threshold: warningThreshold,
+      message: buildCommitWarningMessage(commitCount, warningThreshold),
+    });
+  };
+
   const runningState = await assertLeaderboardRunning();
   if (!runningState.ok) {
     return { skipped: true, reason: runningState.reason };
@@ -97,6 +111,7 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
         }
       )
     );
+    emitCommitWarningIfNeeded((team.commitCount ?? 0) + 1);
     return { 
       skipped: true, 
       reason: `Commit quality check failed: ${validation.reason}` 
@@ -240,6 +255,7 @@ export async function checkTeam(team: Team): Promise<CheckResult> {
       $inc: { commitCount: 1 },
     }
   );
+  emitCommitWarningIfNeeded((team.commitCount ?? 0) + 1);
 
   // ── Step 7: Broadcast real-time update if anything was awarded ───────────
   const anyVerified = Object.values(results).some((r) => r === "verified");

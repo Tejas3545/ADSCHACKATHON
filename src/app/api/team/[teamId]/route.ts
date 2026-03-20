@@ -2,6 +2,7 @@ import { getCollections } from "@/lib/collections";
 import { levelFromXp } from "@/lib/models";
 import { serverCache, CacheKeys, CacheTTL } from "@/lib/cache";
 import { ensureDefaultMilestones } from "@/lib/milestone-seed";
+import { buildCommitWarningMessage, calculateCommitXpPenalty, getCommitWarningThreshold, shouldWarnForCommitCount } from "@/lib/commit-warning";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,12 @@ export async function GET(
       .toArray(),
   ]);
 
+  const warningThreshold = getCommitWarningThreshold();
+  const commitCount = team.commitCount ?? 0;
+  const showCommitWarning = shouldWarnForCommitCount(commitCount, warningThreshold);
+  const penalty = calculateCommitXpPenalty(commitCount);
+  const effectiveXP = penalty.effectiveXP(team.xp);
+
   const result = {
     ok: true,
     team: {
@@ -45,10 +52,19 @@ export async function GET(
       name: team.name,
       members: team.members,
       repo: team.repo,
-      xp: team.xp,
+      xp: effectiveXP,
+      rawXp: team.xp,
+      xpPenalty: penalty.penaltyXP,
       coins: team.coins,
-      level: levelFromXp(team.xp),
+      level: levelFromXp(effectiveXP),
       frozen: team.frozen,
+      commitCount,
+      commitWarning: showCommitWarning
+        ? {
+            threshold: warningThreshold,
+            message: buildCommitWarningMessage(commitCount, warningThreshold),
+          }
+        : null,
     },
     milestones: ms.map((m) => ({
       milestoneId: m._id,
